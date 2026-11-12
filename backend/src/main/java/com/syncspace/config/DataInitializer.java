@@ -24,6 +24,14 @@ public class DataInitializer {
                                       DocumentRepository documentRepository,
                                       PasswordEncoder passwordEncoder) {
         return args -> {
+            if (!userRepository.existsByEmail("alex@acme.dev")) {
+                User alex = new User(
+                        "alex@acme.dev",
+                        passwordEncoder.encode("password123"),
+                        "Alex Mercer"
+                );
+                userRepository.save(alex);
+            }
             if (!userRepository.existsByEmail("student@college.edu")) {
                 User demoUser = new User(
                         "student@college.edu",

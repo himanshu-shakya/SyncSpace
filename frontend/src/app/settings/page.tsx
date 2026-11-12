@@ -696,13 +696,12 @@ export default function SettingsPage() {
                     {/* Toggles */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm pt-space-xs">
                       {[
-                        { key: 'gutterLineNumbers', label: 'Gutter Line Numbers' },
-                        { key: 'bracketHighlight', label: 'Bracket & Pair Highlight' },
-                        { key: 'liveFooterStats', label: 'Live Footer Stats' },
-                        { key: 'inlineMath', label: 'Inline Math & LaTeX ($$)' },
+                        { key: 'gutterLineNumbers' as const, label: 'Gutter Line Numbers' },
+                        { key: 'bracketHighlight' as const, label: 'Bracket & Pair Highlight' },
+                        { key: 'liveFooterStats' as const, label: 'Live Footer Stats' },
+                        { key: 'inlineMath' as const, label: 'Inline Math & LaTeX ($$)' },
                       ].map((item) => {
-                        const k = item.key as keyof UserSettings;
-                        const val = Boolean(settings[k]);
+                        const val = settings[item.key];
                         return (
                           <div
                             key={item.key}
@@ -710,7 +709,7 @@ export default function SettingsPage() {
                           >
                             <span className="font-label-ui text-label-ui text-on-surface">{item.label}</span>
                             <button
-                              onClick={() => updateSetting(k, !val as any)}
+                              onClick={() => updateSetting(item.key, !val)}
                               type="button"
                               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
                                 val ? 'bg-primary-container' : 'bg-surface-container-high'
@@ -790,23 +789,22 @@ export default function SettingsPage() {
                     <div className="flex flex-col gap-space-sm pt-space-xs">
                       {[
                         {
-                          key: 'offlineBackup',
+                          key: 'offlineBackup' as const,
                           title: 'Enable IndexedDB Offline Backup',
                           desc: 'Local-first cache holding fast document backups across your browser sessions.',
                         },
                         {
-                          key: 'remoteCursors',
+                          key: 'remoteCursors' as const,
                           title: 'Remote Multi-Cursor Presence',
                           desc: 'Display colored peer carets with user handle callout pills in real-time split view.',
                         },
                         {
-                          key: 'visualPing',
+                          key: 'visualPing' as const,
                           title: 'Visual Ping on Conflict Resolution',
                           desc: 'Subtle emerald pulse highlight when an autonomous merge completes via CRDT engine.',
                         },
                       ].map((item) => {
-                        const k = item.key as keyof UserSettings;
-                        const val = Boolean(settings[k]);
+                        const val = settings[item.key];
                         return (
                           <div
                             key={item.key}
@@ -817,7 +815,7 @@ export default function SettingsPage() {
                               <span className="font-body-sm text-body-sm text-on-surface-variant">{item.desc}</span>
                             </div>
                             <button
-                              onClick={() => updateSetting(k, !val as any)}
+                              onClick={() => updateSetting(item.key, !val)}
                               type="button"
                               className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
                                 val ? 'bg-primary-container' : 'bg-surface-container-high'

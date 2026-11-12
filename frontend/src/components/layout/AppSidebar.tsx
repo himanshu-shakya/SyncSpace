@@ -45,7 +45,7 @@ export default function AppSidebar({
   useEffect(() => {
     // Close mobile sidebar on navigation
     if (onCloseMobile) onCloseMobile();
-  }, [pathname]);
+  }, [pathname, onCloseMobile]);
 
   useEffect(() => {
     // Global shortcut for Command Palette (⌘K or Ctrl+K)
