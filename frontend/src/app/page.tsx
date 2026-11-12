@@ -20,25 +20,24 @@ export default function LandingPage() {
         <a className="font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface transition-colors" href="#editor">Markdown Editor</a>
         <a className="font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface transition-colors" href="#multiplayer">Multiplayer Sync</a>
         <a className="font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface transition-colors" href="#architecture">Architecture</a>
-        <a className="font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface transition-colors" href="#pricing">Pricing</a>
       </nav>
     </div>
     <div className="flex items-center gap-space-sm">
       <div className="hidden md:flex items-center gap-space-xs bg-surface-container-low px-space-sm py-space-xs rounded text-on-surface-variant">
-        <span className="material-symbols-outlined text-[16px]">star</span>
-        <span className="font-label-mono-sm text-label-mono-sm">12.4k</span>
+        <span className="material-symbols-outlined text-[16px] text-primary-container">school</span>
+        <span className="font-label-mono-sm text-label-mono-sm">College Full-Stack Project</span>
       </div>
       <a 
-        className="font-label-ui text-label-ui text-on-surface hover:bg-surface-container-high hover:text-on-surface px-space-sm py-space-xs rounded transition-colors" 
+        className="font-label-ui text-label-ui text-on-surface hover:bg-surface-container-high hover:text-on-surface px-space-md py-space-xs rounded transition-colors font-medium" 
         href="/login"
       >
-        Sign In
+        Login
       </a>
       <a 
         className="font-label-ui text-label-ui bg-primary-container text-on-primary-container hover:bg-secondary-container hover:text-on-secondary px-space-md py-space-xs rounded shadow-[0_0_16px_rgba(0,245,160,0.35)] transition-all flex items-center gap-space-xs font-semibold" 
         href="/register"
       >
-        Get Started Free
+        Sign Up
         <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
       </a>
     </div>
@@ -57,40 +56,42 @@ export default function LandingPage() {
 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-75"></span>
 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-container"></span>
 </span>
-<span className="font-label-mono-sm text-label-mono-sm text-on-surface">SyncSpace 2.0 is live · Real-Time CRDT Engine</span>
-<span className="material-symbols-outlined text-[14px] text-primary-container">arrow_forward</span>
+<span className="font-label-mono-sm text-label-mono-sm text-on-surface">Java Full-Stack Project · Spring Boot 3 &amp; Next.js 14</span>
+<span className="material-symbols-outlined text-[14px] text-primary-container">code</span>
 </div>
 {/*  Headline & Subtitle  */}
 <h1 className="font-display-hero text-display-hero tracking-tight text-on-surface max-w-4xl mx-auto mb-space-md">
-        Your ideas. <span className="bg-gradient-to-r from-on-surface via-primary to-primary-container bg-clip-text text-transparent">One beautiful space.</span>
+        Your ideas. <span className="bg-gradient-to-r from-on-surface via-primary to-primary-container bg-clip-text text-transparent">One collaborative space.</span>
 </h1>
 <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-space-xl">
-        Write, organize, and collaborate effortlessly. A focused, lightning-fast workspace for everything you and your team create with Markdown.
+        A real-time collaborative Markdown editor and distributed knowledge workspace. Built with Java Spring Boot, WebSockets STOMP, and Next.js for technical teams and students.
       </p>
-{/*  Dual CTAs  */}
+{/*  Dual CTAs: Sign Up & Login  */}
 <div className="flex flex-col sm:flex-row items-center gap-space-md mb-space-xl">
 <a className="font-label-ui text-label-ui bg-primary-container text-on-primary-container hover:bg-secondary-container hover:text-on-secondary px-space-lg py-space-md rounded font-semibold transition-all shadow-[0_0_24px_rgba(0,245,160,0.35)] flex items-center gap-space-xs" href="/register">
-          Start Writing for Free
+          Sign Up
           <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
 </a>
-<button className="font-label-ui text-label-ui bg-surface-container-high/70 hover:bg-surface-container-highest text-on-surface px-space-lg py-space-md rounded transition-colors flex items-center gap-space-sm shadow-sm backdrop-blur-md" type="button">
-<span className="material-symbols-outlined text-[18px] text-secondary">play_circle</span>
-          Watch 2-Min Interactive Demo
-        </button>
+<a className="font-label-ui text-label-ui bg-surface-container-high/70 hover:bg-surface-container-highest text-on-surface px-space-lg py-space-md rounded transition-colors flex items-center gap-space-sm shadow-sm backdrop-blur-md" href="/login">
+<span className="material-symbols-outlined text-[18px] text-secondary">login</span>
+          Login to Workspace
+</a>
 </div>
-{/*  Social Proof Badge Row  */}
+{/*  Full-Stack Tech Architecture Showcase Row  */}
 <div className="flex flex-col items-center gap-space-sm">
 <span className="font-label-mono-sm text-label-mono-sm uppercase tracking-widest text-on-surface-variant/80">
-          Loved by 40,000+ engineers and product writers
+          Built with Modern High-Concurrency Architecture
         </span>
-<div className="flex flex-wrap items-center justify-center gap-space-lg opacity-60">
-<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">Vercel</span>
+<div className="flex flex-wrap items-center justify-center gap-space-lg opacity-75">
+<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">Spring Boot 3</span>
 <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">/</span>
-<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">Supabase</span>
+<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">Next.js 14</span>
 <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">/</span>
-<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">Linear</span>
+<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">WebSockets STOMP</span>
 <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">/</span>
-<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">Stripe</span>
+<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">PostgreSQL</span>
+<span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">/</span>
+<span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">Tailwind CSS</span>
 </div>
 </div>
 {/*  2. INTERACTIVE LIVE MARKDOWN EDITOR PREVIEW WINDOW (SHOWCASE)  */}
@@ -381,35 +382,32 @@ export default function LandingPage() {
 </div>
 </div>
 </section>
-{/*  5. INTERACTIVE PRICING PREVIEW & CTA BANNER  */}
+{/*  5. ACADEMIC PROJECT CTA BANNER  */}
 <section className="max-w-7xl mx-auto px-margin-tablet lg:px-margin-desktop py-space-xl">
-
-
-{/*  High-Impact Bottom CTA Banner  */}
 <div className="bg-gradient-to-r from-surface-container-lowest via-surface-container-low to-surface-container-lowest p-space-xl rounded-xl shadow-2xl text-center relative overflow-hidden">
 <div className="absolute inset-0 bg-primary-container/5 pointer-events-none"></div>
 <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center gap-space-md">
 <h3 className="font-headline-lg text-headline-lg font-bold text-on-surface">
-            Experience document zen today.
+            Start Collaborating on SyncSpace
           </h3>
 <p className="font-body-md text-body-md text-on-surface-variant">
-            No credit card required. Connect with your GitHub account and start collaborating in seconds.
+            Experience zero-latency Markdown synchronization backed by Java Spring Boot and WebSocket STOMP.
           </p>
 <div className="flex flex-col sm:flex-row items-center gap-space-md mt-space-sm">
-<a className="font-label-ui text-label-ui bg-primary-container text-on-primary-container hover:bg-secondary-container hover:text-on-secondary px-space-lg py-space-md rounded font-semibold transition-all shadow-[0_0_24px_rgba(0,245,160,0.35)] flex items-center gap-space-xs" href="/login">
-<span className="material-symbols-outlined text-[18px]">terminal</span>
-              Launch Web App
+<a className="font-label-ui text-label-ui bg-primary-container text-on-primary-container hover:bg-secondary-container hover:text-on-secondary px-space-lg py-space-md rounded font-semibold transition-all shadow-[0_0_24px_rgba(0,245,160,0.35)] flex items-center gap-space-xs" href="/register">
+<span className="material-symbols-outlined text-[18px]">person_add</span>
+              Sign Up
             </a>
-<a className="font-label-ui text-label-ui text-on-surface hover:text-primary-container px-space-md py-space-md transition-colors flex items-center gap-space-xs" href="/register">
-              Start Free Trial
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-</a>
+<a className="font-label-ui text-label-ui bg-surface-container-high/70 hover:bg-surface-container-highest text-on-surface px-space-lg py-space-md rounded transition-colors flex items-center gap-space-xs shadow-sm backdrop-blur-md" href="/login">
+<span className="material-symbols-outlined text-[18px] text-secondary">login</span>
+              Login
+            </a>
 </div>
 </div>
 </div>
 </section>
 </div>
-</div></main><footer className="w-full bg-surface-container-lowest"><div className="max-w-7xl mx-auto px-margin-tablet lg:px-margin-desktop py-space-xl"><div className="flex flex-col md:flex-row md:items-center justify-between pb-space-lg gap-space-md"><div className="flex items-center gap-space-sm"><div className="w-8 h-8 rounded bg-surface-container-high border border-surface-container-highest flex items-center justify-center text-primary-container shadow-[0_0_12px_rgba(0,245,160,0.3)]"><span className="material-symbols-outlined text-[20px] text-primary-container">polyline</span></div><span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">SyncSpace</span></div><div className="inline-flex items-center gap-space-sm bg-surface-container-low px-space-sm py-space-xs rounded"><span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span><span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">All systems operational · WebSocket 99.99%</span></div></div><div className="grid grid-cols-2 md:grid-cols-5 gap-space-lg py-space-xl"><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Product</span><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="markdown-editor" href="/dashboard">Live Markdown</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="multiplayer-sync" href="/dashboard">CRDT Engine</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="/dashboard">Knowledge Graph</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="pricing" href="/dashboard">Enterprise</a></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Resources</span><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="changelog" href="/dashboard">Documentation</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="/dashboard">API Reference</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="changelog" href="/dashboard">Release Notes</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="/dashboard">Community Showcase</a></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Company</span><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="/dashboard">Manifesto</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="/dashboard">Careers</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="changelog" href="/dashboard">Press Kit</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="/dashboard">Contact</a></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Developers</span><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="integrations" href="/dashboard">SDKs & Plugins</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="integrations" href="/dashboard">Webhooks</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="integrations" href="/dashboard">GitHub Sync</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="changelog" href="/dashboard">CLI Tool</a></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Legal</span><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="pricing" href="/dashboard">Terms of Service</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="pricing" href="/dashboard">Security Whitepaper</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="pricing" href="/dashboard">Compliance</a></div></div><div className="pt-space-lg flex flex-col md:flex-row items-center justify-between gap-space-sm"><p className="font-body-sm text-body-sm text-on-surface-variant">© 2025 SyncSpace Labs Inc. Designed for technical thinkers.</p><div className="flex items-center gap-space-md"><a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/dashboard"><span className="material-symbols-outlined text-[18px]">code</span></a><a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/dashboard"><span className="material-symbols-outlined text-[18px]">forum</span></a><a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/dashboard"><span className="material-symbols-outlined text-[18px]">terminal</span></a></div></div></div></footer>
+</div></main><footer className="w-full bg-surface-container-lowest border-t border-surface-container-high/50"><div className="max-w-7xl mx-auto px-margin-tablet lg:px-margin-desktop py-space-xl"><div className="flex flex-col md:flex-row md:items-center justify-between pb-space-lg gap-space-md"><div className="flex items-center gap-space-sm"><div className="w-8 h-8 rounded bg-surface-container-high border border-surface-container-highest flex items-center justify-center text-primary-container shadow-[0_0_12px_rgba(0,245,160,0.3)]"><span className="material-symbols-outlined text-[20px] text-primary-container">polyline</span></div><span className="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">SyncSpace</span></div><div className="inline-flex items-center gap-space-sm bg-surface-container-low px-space-sm py-space-xs rounded"><span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span><span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">Academic Capstone Project · Spring Boot 3 &amp; Next.js 14 · WebSockets Online</span></div></div><div className="grid grid-cols-2 md:grid-cols-5 gap-space-lg py-space-xl"><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Architecture</span><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#architecture">Decoupled Tiers</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#multiplayer">WebSocket STOMP</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#architecture">Virtual Threads</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#architecture">PostgreSQL Vector</a></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Frontend Stack</span><span className="font-body-sm text-body-sm text-on-surface-variant">Next.js 14 App Router</span><span className="font-body-sm text-body-sm text-on-surface-variant">Tailwind CSS (Stitch UI)</span><span className="font-body-sm text-body-sm text-on-surface-variant">TypeScript Strict</span><span className="font-body-sm text-body-sm text-on-surface-variant">TanStack React Query</span></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Backend Stack</span><span className="font-body-sm text-body-sm text-on-surface-variant">Java 17 / 21 Platform</span><span className="font-body-sm text-body-sm text-on-surface-variant">Spring Boot 3.3 Engine</span><span className="font-body-sm text-body-sm text-on-surface-variant">Spring Security JWT</span><span className="font-body-sm text-body-sm text-on-surface-variant">Spring Data JPA / Hibernate</span></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Core Features</span><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#editor">Live Markdown Preview</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#multiplayer">Collaborative State Sync</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="/dashboard">Workspaces Management</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="/dashboard">Role-Based Sharing</a></div><div className="flex flex-col gap-space-sm"><span className="font-label-mono-sm text-label-mono-sm text-on-surface uppercase tracking-wider">Project Viva Info</span><span className="font-body-sm text-body-sm text-on-surface-variant">B.Tech Full-Stack Capstone</span><span className="font-body-sm text-body-sm text-on-surface-variant">Author: Himanshu Shakya</span><a className="font-body-sm text-body-sm text-primary-container hover:underline transition-colors" href="https://github.com/himanshu-shakya/SyncSpace" rel="noreferrer" target="_blank">GitHub Repository</a><a className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="/login">Live Portal</a></div></div><div className="pt-space-lg flex flex-col md:flex-row items-center justify-between gap-space-sm"><p className="font-body-sm text-body-sm text-on-surface-variant">© 2025–2026 SyncSpace · Academic Full-Stack Software Engineering Project. Developed by Himanshu Shakya.</p><div className="flex items-center gap-space-md"><a className="text-on-surface-variant hover:text-primary-container transition-colors" href="https://github.com/himanshu-shakya/SyncSpace" rel="noreferrer" target="_blank" title="GitHub Repository"><span className="material-symbols-outlined text-[18px]">code</span></a><a className="text-on-surface-variant hover:text-on-surface transition-colors" href="/login" title="Login"><span className="material-symbols-outlined text-[18px]">terminal</span></a></div></div></div></footer>
     </div>
   );
 }

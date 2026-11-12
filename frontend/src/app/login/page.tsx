@@ -234,7 +234,7 @@ export default function LoginPage() {
               href="/register"
               className="ml-1 text-primary-container hover:text-secondary-container font-medium transition-colors cursor-pointer underline-offset-4 hover:underline"
             >
-              Create one for free
+              Create an account
             </Link>
           </div>
 
