@@ -15,13 +15,13 @@ interface ShareItem {
 }
 
 interface ShareModalProps {
-  documentId: string;
+  documentId: string | number;
   isOpen: boolean;
   onClose: () => void;
-  isOwner: boolean;
+  isOwner?: boolean;
 }
 
-export default function ShareModal({ documentId, isOpen, onClose, isOwner }: ShareModalProps) {
+export default function ShareModal({ documentId, isOpen, onClose, isOwner = true }: ShareModalProps) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'EDITOR' | 'VIEWER'>('EDITOR');

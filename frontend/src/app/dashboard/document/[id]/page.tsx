@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
@@ -8,25 +8,7 @@ import { api } from '@/lib/api';
 import { DocumentItem } from '@/types/document';
 import ShareModal from '@/components/ShareModal';
 import { useDocumentSync } from '@/hooks/useDocumentSync';
-import {
-  ArrowLeft,
-  Save,
-  CheckCircle2,
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  Code,
-  Quote,
-  Link as LinkIcon,
-  Columns,
-  Loader2,
-  AlertCircle,
-  Share2,
-  Lock,
-  Image as ImageIcon,
-  Table as TableIcon
-} from 'lucide-react';
+import AppHeader from '@/components/layout/AppHeader';
 
 export default function DocumentEditorPage() {
   const params = useParams();
@@ -42,6 +24,9 @@ export default function DocumentEditorPage() {
   const [remoteEditNotice, setRemoteEditNotice] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ email: string; fullName: string } | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [copiedHtml, setCopiedHtml] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,7 +68,7 @@ export default function DocumentEditorPage() {
     onRemoteUpdate: (remoteTitle, remoteContent, senderName) => {
       setContent(remoteContent);
       if (remoteTitle) setTitle(remoteTitle);
-      setRemoteEditNotice(`🟢 ${senderName} is editing live...`);
+      setRemoteEditNotice(`${senderName} is editing live...`);
 
       const timer = setTimeout(() => {
         setRemoteEditNotice(null);
@@ -153,6 +138,18 @@ export default function DocumentEditorPage() {
     setHasUnsavedChanges(true);
   };
 
+  // Track cursor position in editor
+  const handleTextareaSelect = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const pos = textarea.selectionStart;
+    const lines = textarea.value.substring(0, pos).split('\n');
+    setCursorPosition({
+      line: lines.length,
+      col: lines[lines.length - 1].length + 1,
+    });
+  };
+
   // Image upload handler
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -200,328 +197,594 @@ export default function DocumentEditorPage() {
 
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + prefix.length, start + prefix.length + (selectedText.length || 4));
-    }, 50);
+      textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 10);
   };
+
+  // Copy HTML to clipboard
+  const handleCopyHtml = () => {
+    navigator.clipboard.writeText(content);
+    setCopiedHtml(true);
+    setTimeout(() => setCopiedHtml(false), 2000);
+  };
+
+  // Word & line counts
+  const wordCount = useMemo(() => {
+    return content.trim() ? content.trim().split(/\s+/).length : 0;
+  }, [content]);
+
+  const lineCount = useMemo(() => {
+    return content.split('\n').length;
+  }, [content]);
+
+  const readTime = useMemo(() => {
+    return Math.max(1, Math.ceil(wordCount / 200));
+  }, [wordCount]);
 
   if (isLoading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-surface flex flex-col items-center justify-center text-on-surface-variant font-mono text-xs">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-container mb-3" />
-        <span>Loading document and WebSocket session...</span>
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center text-on-surface-variant font-label-mono-sm">
+        <span className="w-8 h-8 border-2 border-primary-container border-t-transparent rounded-full animate-spin mb-3"></span>
+        <span>Loading document from Spring Boot backend...</span>
       </div>
     );
   }
 
   if (isError || !document) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-surface flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-surface-container-low border border-surface-container-high rounded-xl p-8 text-center">
-          <AlertCircle className="w-10 h-10 text-error mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-on-surface">Document Not Found or Access Denied</h2>
-          <p className="text-xs text-on-surface-variant mt-2 mb-6">
-            You might not have permission to view this document, or it has been deleted.
-          </p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 bg-primary-container text-on-primary-container font-mono text-xs font-semibold rounded-lg shadow-emerald-sm"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 text-center">
+        <span className="material-symbols-outlined text-error text-[48px] mb-3">error</span>
+        <h2 className="text-xl font-bold text-on-surface mb-2">Document not found or inaccessible</h2>
+        <p className="text-xs text-on-surface-variant mb-6">
+          You may not have permission to view this document or it was deleted.
+        </p>
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="px-4 py-2 bg-primary-container text-on-primary-container font-semibold rounded-lg font-label-ui text-label-ui shadow-sm"
+        >
+          Return to Dashboard
+        </button>
       </div>
     );
   }
 
-  const isViewer = document.role === 'VIEWER';
-  const isOwner = document.role === 'OWNER';
+  const isReadOnly = document.role === 'VIEWER';
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-surface text-on-surface flex flex-col">
-      
-      {/* Hidden file input for image upload */}
+    <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body-md selection:bg-primary-container selection:text-on-primary-container">
+      {/* Hidden File Input for Image Uploads */}
       <input
-        type="file"
         ref={fileInputRef}
+        type="file"
+        accept="image/*"
         onChange={handleImageUpload}
-        accept="image/png,image/jpeg,image/gif,image/webp"
         className="hidden"
       />
 
-      {/* TOP HEADER / ACTION BAR */}
-      <div className="bg-surface-container-low border-b border-surface-container-high px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-30">
-        
-        {/* Left: Back Arrow + Document Title */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors"
-            title="Back to Dashboard"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+      {/* Top Application Header */}
+      <AppHeader
+        breadcrumbs={[
+          { label: 'SyncSpace', href: '/dashboard' },
+          { label: 'Documents', href: '/dashboard' },
+          { label: title || 'Untitled Document' }
+        ]}
+        showShareButton={document.role === 'OWNER'}
+        onShareClick={() => setIsShareModalOpen(true)}
+      />
 
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <input
-              type="text"
-              value={title}
-              disabled={isViewer}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              placeholder="Document Title"
-              className="bg-transparent text-sm sm:text-base font-bold text-on-surface focus:outline-none focus:bg-surface-container-high/40 px-2 py-1 rounded transition-colors truncate max-w-md w-full"
-            />
-            {isViewer && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono bg-surface-container-high px-2 py-0.5 rounded text-on-surface-variant">
-                <Lock className="w-3 h-3 text-secondary" /> Read-Only
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Presence, Status, View Switcher & Share */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+      {/* Main Document Content Canvas */}
+      <main className="w-full pt-14 bg-surface min-h-screen flex flex-col">
+        {/* Document Sub-Header & Live Presence Hub */}
+        <div className="w-full bg-surface-container-low/95 px-margin-tablet lg:px-gutter-desktop py-space-sm flex flex-col xl:flex-row xl:items-center justify-between gap-space-sm shadow-sm border-b border-surface-container-high/60">
           
-          {/* Live Sync Status */}
-          <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-on-surface-variant">
-            {saveMutation.isPending ? (
-              <span className="flex items-center gap-1 text-tertiary">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving...</span>
+          {/* Breadcrumb, Title & Cloud Sync Indicator */}
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-space-xs font-label-mono-sm text-label-mono-sm text-on-surface-variant truncate">
+              <span onClick={() => router.push('/dashboard')} className="hover:text-primary transition-colors cursor-pointer">
+                Knowledge Hub
               </span>
-            ) : hasUnsavedChanges ? (
-              <span className="text-secondary flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                <span>Unsaved</span>
+              <span className="text-outline-variant font-sans">/</span>
+              <span className="hover:text-primary transition-colors cursor-pointer">Specs</span>
+              <span className="text-outline-variant font-sans">/</span>
+              <span className="text-secondary font-medium truncate">
+                {title ? `${title.toLowerCase().replace(/\s+/g, '-')}.md` : 'untitled.md'}
               </span>
-            ) : (
-              <span className="text-primary-container flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-primary-container" />
-                <span>Synced</span>
-              </span>
-            )}
-          </div>
+            </div>
 
-          {/* Segmented View Mode Controller */}
-          <div className="flex items-center bg-surface-container-lowest border border-surface-container-high p-0.5 rounded-lg text-xs font-mono">
-            <button
-              onClick={() => setViewMode('editor')}
-              className={`px-2.5 py-1 rounded transition-all ${viewMode === 'editor' ? 'bg-surface-container-high text-primary-container font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
-              title="Raw Editor Only"
-            >
-              Raw
-            </button>
-            <button
-              onClick={() => setViewMode('split')}
-              className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 ${viewMode === 'split' ? 'bg-surface-container-high text-primary-container font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
-              title="Split View"
-            >
-              <Columns className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Split</span>
-            </button>
-            <button
-              onClick={() => setViewMode('preview')}
-              className={`px-2.5 py-1 rounded transition-all ${viewMode === 'preview' ? 'bg-surface-container-high text-primary-container font-semibold' : 'text-on-surface-variant hover:text-on-surface'}`}
-              title="Rendered Preview Only"
-            >
-              Rendered
-            </button>
-          </div>
+            <div className="flex items-center gap-space-md flex-wrap">
+              <div className="group flex items-center gap-space-xs min-w-0">
+                <input
+                  type="text"
+                  value={title}
+                  disabled={isReadOnly}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="Document Title..."
+                  className="font-headline-md text-headline-md text-on-surface bg-transparent hover:bg-surface-container/60 focus:bg-surface-container px-space-xs py-0.5 rounded transition-colors focus:outline-none focus:text-primary min-w-[260px] md:min-w-[380px] font-semibold border-b border-transparent focus:border-primary-container truncate"
+                />
+              </div>
 
-          {/* Share Button */}
-          <button
-            onClick={() => setIsShareModalOpen(true)}
-            className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface border border-surface-container-high rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 transition-colors"
-          >
-            <Share2 className="w-3.5 h-3.5 text-primary-container" />
-            <span className="hidden sm:inline">Share</span>
-          </button>
+              {/* Sync Latency / Save Status Pill */}
+              <div className="inline-flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-surface-container-highest border border-surface-container-high/50">
+                <span className="relative flex h-2 w-2">
+                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                    saveMutation.isPending ? 'bg-secondary animate-ping' : hasUnsavedChanges ? 'bg-tertiary-fixed-dim' : 'bg-primary-container animate-ping'
+                  }`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                    saveMutation.isPending ? 'bg-secondary' : hasUnsavedChanges ? 'bg-tertiary-fixed-dim' : 'bg-primary-container'
+                  }`}></span>
+                </span>
+                <span className="font-label-mono-sm text-label-mono-sm text-primary font-medium tracking-tight">
+                  {saveMutation.isPending ? 'Saving...' : hasUnsavedChanges ? 'Unsaved edits' : 'Saved to Cloud'}
+                </span>
+                <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant hidden sm:inline">
+                  · Spring Boot STOMP
+                </span>
+              </div>
 
-          {/* Manual Save Button */}
-          {!isViewer && (
-            <button
-              onClick={handleManualSave}
-              disabled={saveMutation.isPending || !hasUnsavedChanges}
-              className="p-1.5 sm:px-3 sm:py-1.5 bg-primary-container hover:bg-secondary-container text-on-primary-container rounded-lg text-xs font-mono font-semibold shadow-emerald-sm transition-all disabled:opacity-40"
-              title="Save (Ctrl+S)"
-            >
-              <Save className="w-3.5 h-3.5 sm:mr-1 inline" />
-              <span className="hidden sm:inline">Save</span>
-            </button>
-          )}
-
-        </div>
-      </div>
-
-      {/* REMOTE COLLABORATOR LIVE BANNER */}
-      {remoteEditNotice && (
-        <div className="bg-primary-container/15 border-b border-primary-container/30 px-6 py-1.5 text-xs font-mono text-primary-container flex items-center justify-between animate-pulse">
-          <span>{remoteEditNotice}</span>
-          <span className="text-[10px] text-on-surface-variant">WebSocket STOMP Parity</span>
-        </div>
-      )}
-
-      {/* FORMATTING TOOLBAR RIBBON */}
-      {!isViewer && (
-        <div className="bg-surface-container-lowest border-b border-surface-container-high px-4 sm:px-6 py-1.5 flex items-center justify-between gap-1 overflow-x-auto text-on-surface-variant">
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => insertFormatting('# ', '', false)}
-              className="px-2 py-1 hover:bg-surface-container hover:text-on-surface rounded text-xs font-mono font-semibold"
-              title="Heading 1"
-            >
-              H1
-            </button>
-            <button
-              onClick={() => insertFormatting('## ', '', false)}
-              className="px-2 py-1 hover:bg-surface-container hover:text-on-surface rounded text-xs font-mono font-semibold"
-              title="Heading 2"
-            >
-              H2
-            </button>
-            <button
-              onClick={() => insertFormatting('### ', '', false)}
-              className="px-2 py-1 hover:bg-surface-container hover:text-on-surface rounded text-xs font-mono font-semibold"
-              title="Heading 3"
-            >
-              H3
-            </button>
-
-            <div className="h-4 w-[1px] bg-surface-container-high mx-1" />
-
-            <button
-              onClick={() => insertFormatting('**', '**')}
-              className="p-1.5 hover:bg-surface-container hover:text-on-surface rounded transition-colors"
-              title="Bold"
-            >
-              <Bold className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => insertFormatting('*', '*')}
-              className="p-1.5 hover:bg-surface-container hover:text-on-surface rounded transition-colors"
-              title="Italic"
-            >
-              <Italic className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => insertFormatting('`', '`')}
-              className="p-1.5 hover:bg-surface-container hover:text-on-surface rounded transition-colors"
-              title="Inline Code"
-            >
-              <Code className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => insertFormatting('```\n', '\n```', true)}
-              className="px-2 py-1 hover:bg-surface-container hover:text-on-surface rounded text-xs font-mono"
-              title="Code Block"
-            >
-              &lt;/&gt;
-            </button>
-
-            <div className="h-4 w-[1px] bg-surface-container-high mx-1" />
-
-            <button
-              onClick={() => insertFormatting('- ', '', false)}
-              className="p-1.5 hover:bg-surface-container hover:text-on-surface rounded transition-colors"
-              title="Bullet List"
-            >
-              <List className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => insertFormatting('1. ', '', false)}
-              className="p-1.5 hover:bg-surface-container hover:text-on-surface rounded transition-colors"
-              title="Numbered List"
-            >
-              <ListOrdered className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => insertFormatting('> ', '', false)}
-              className="p-1.5 hover:bg-surface-container hover:text-on-surface rounded transition-colors"
-              title="Quote"
-            >
-              <Quote className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => insertFormatting('[', '](https://)')}
-              className="p-1.5 hover:bg-surface-container hover:text-on-surface rounded transition-colors"
-              title="Link"
-            >
-              <LinkIcon className="w-3.5 h-3.5" />
-            </button>
-
-            <div className="h-4 w-[1px] bg-surface-container-high mx-1" />
-
-            {/* Image upload button */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploadingImage}
-              className="flex items-center gap-1 px-2 py-1 hover:bg-surface-container hover:text-primary-container rounded transition-colors text-xs font-mono"
-              title="Upload Image"
-            >
-              {isUploadingImage ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <ImageIcon className="w-3.5 h-3.5" />
+              {/* Remote Edit Notification */}
+              {remoteEditNotice && (
+                <div className="inline-flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-primary-container/15 text-primary-container border border-primary-container/30 font-label-mono-sm text-[11px] animate-pulse">
+                  <span className="material-symbols-outlined text-[13px]">sync</span>
+                  <span>{remoteEditNotice}</span>
+                </div>
               )}
-              <span className="hidden sm:inline">Image</span>
-            </button>
-
-            {/* Table template */}
-            <button
-              onClick={() => insertFormatting('\n| Feature | Status | Notes |\n| :--- | :--- | :--- |\n| WebSockets | Ready | STOMP |\n| Storage | Persistent | H2 |\n\n', '', false)}
-              className="flex items-center gap-1 px-2 py-1 hover:bg-surface-container hover:text-secondary rounded transition-colors text-xs font-mono"
-              title="Insert Table"
-            >
-              <TableIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Table</span>
-            </button>
+            </div>
           </div>
 
-          {/* Word & Character counts */}
-          <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono text-on-surface-variant/70">
-            <span>{content.trim() ? content.trim().split(/\s+/).length : 0} words</span>
-            <span>·</span>
-            <span>{content.length} chars</span>
+          {/* Active Collaborator Stack & Global Actions */}
+          <div className="flex items-center gap-space-md justify-between xl:justify-end flex-wrap">
+            {/* Live Collaborators Avatars */}
+            <div className="flex items-center gap-space-sm bg-surface-container px-space-sm py-1 rounded border border-surface-container-highest/60">
+              <div className="flex items-center -space-x-2">
+                {/* Active user */}
+                <div className="relative group cursor-pointer" title={`${currentUser?.fullName || 'You'} (Active)`}>
+                  <div className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-primary-container font-label-mono-sm text-label-mono-sm font-semibold shadow-[0_0_0_2px_#00f5a0]">
+                    {currentUser?.fullName?.substring(0, 2).toUpperCase() || 'ME'}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary-container shadow-[0_0_6px_#00f5a0]"></span>
+                </div>
+
+                {/* Simulated peers */}
+                <div className="relative group cursor-pointer" title="Sarah C. (Spring Boot Node)">
+                  <div className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-secondary font-label-mono-sm text-label-mono-sm font-semibold shadow-[0_0_0_2px_#00d7f4]">
+                    SC
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_6px_#00d7f4]"></span>
+                </div>
+
+                <div className="relative group cursor-pointer" title="Alex M. (CRDT Sync Engine)">
+                  <div className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-tertiary-fixed font-label-mono-sm text-label-mono-sm font-medium shadow-[0_0_0_2px_#1c2024]">
+                    AM
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-outline"></span>
+                </div>
+              </div>
+
+              {document.role === 'OWNER' && (
+                <button
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="flex items-center gap-1 font-label-ui text-label-ui text-primary-fixed hover:text-primary transition-colors pl-1 cursor-pointer"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[16px]">person_add</span>
+                  <span>Share</span>
+                </button>
+              )}
+            </div>
+
+            {/* Segmented View Mode Controller */}
+            <div className="flex items-center bg-surface-container-lowest p-0.5 rounded border border-surface-container-highest/60">
+              <button
+                onClick={() => setViewMode('editor')}
+                className={`px-space-sm py-1 rounded font-label-ui text-label-ui transition-all cursor-pointer ${
+                  viewMode === 'editor'
+                    ? 'bg-surface-container-high text-primary-container font-medium shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+                type="button"
+              >
+                Raw Markdown
+              </button>
+              <button
+                onClick={() => setViewMode('split')}
+                className={`px-space-sm py-1 rounded font-label-ui text-label-ui font-medium transition-all flex items-center gap-1 cursor-pointer ${
+                  viewMode === 'split'
+                    ? 'bg-surface-container-high text-primary-container shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[14px]">vertical_split</span>
+                <span>Split View</span>
+              </button>
+              <button
+                onClick={() => setViewMode('preview')}
+                className={`px-space-sm py-1 rounded font-label-ui text-label-ui transition-all cursor-pointer ${
+                  viewMode === 'preview'
+                    ? 'bg-surface-container-high text-primary-container font-medium shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+                type="button"
+              >
+                Rendered
+              </button>
+            </div>
+
+            {/* Save / Manual Save Action */}
+            <div className="flex items-center gap-1">
+              {!isReadOnly && (
+                <button
+                  onClick={handleManualSave}
+                  disabled={saveMutation.isPending}
+                  className="flex items-center gap-1 px-space-md py-1.5 bg-primary-container hover:bg-secondary-container text-on-primary-container rounded font-label-ui text-label-ui font-semibold transition-all shadow-[0_0_12px_rgba(0,245,160,0.2)] disabled:opacity-50 cursor-pointer"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    {saveMutation.isPending ? 'sync' : 'save'}
+                  </span>
+                  <span>{saveMutation.isPending ? 'Saving' : 'Save'}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* EDITOR CANVAS (SPLIT PANES) */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* Left: Raw Markdown Editor */}
-        {(viewMode === 'split' || viewMode === 'editor') && (
-          <div className={`flex flex-col bg-surface-container-lowest ${viewMode === 'split' ? 'w-full md:w-1/2 border-r border-surface-container-high' : 'w-full'} overflow-hidden`}>
-            <textarea
-              ref={textareaRef}
-              value={content}
-              disabled={isViewer}
-              onChange={(e) => handleContentChange(e.target.value)}
-              placeholder="Write Markdown here... Use # for headings, - for lists, ``` for code blocks"
-              className="w-full flex-1 p-6 bg-surface-container-lowest text-on-surface font-mono text-xs sm:text-sm leading-relaxed resize-none focus:outline-none focus:bg-surface-container-low/10 overflow-y-auto selection:bg-primary-container selection:text-on-primary-container"
-              spellCheck={false}
-            />
-          </div>
-        )}
+        {/* Formatting Sticky Ribbon (Distraction-Free Toolbar) */}
+        {!isReadOnly && (
+          <div className="sticky top-14 z-30 w-full bg-surface-container-lowest/90 backdrop-blur-md px-margin-tablet lg:px-gutter-desktop py-1.5 flex items-center justify-between gap-space-sm overflow-x-auto shadow-sm border-b border-surface-container-high/60">
+            <div className="flex items-center gap-0.5 min-w-max">
+              {/* Headings Quick Action */}
+              <button
+                onClick={() => insertFormatting('# ', '', false)}
+                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-container text-on-surface font-label-mono-sm text-xs font-semibold"
+                title="Heading 1"
+                type="button"
+              >
+                <span className="text-primary-container">H1</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('## ', '', false)}
+                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-container text-on-surface font-label-mono-sm text-xs font-semibold"
+                title="Heading 2"
+                type="button"
+              >
+                <span className="text-secondary">H2</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('### ', '', false)}
+                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-container text-on-surface font-label-mono-sm text-xs font-semibold"
+                title="Heading 3"
+                type="button"
+              >
+                <span className="text-on-surface-variant">H3</span>
+              </button>
 
-        {/* Right: Live Rendered Preview */}
-        {(viewMode === 'split' || viewMode === 'preview') && (
-          <div className={`flex flex-col bg-surface overflow-y-auto ${viewMode === 'split' ? 'w-full md:w-1/2' : 'w-full'} p-6 sm:p-8`}>
-            <div className="max-w-3xl mx-auto w-full prose prose-invert">
-              <ReactMarkdown>{content || '*No content yet. Start typing on the left to see live Markdown preview...*'}</ReactMarkdown>
+              <div className="h-4 w-[1px] bg-surface-container-high mx-1"></div>
+
+              {/* Text Styling */}
+              <button
+                onClick={() => insertFormatting('**', '**')}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Bold (⌘B)"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">format_bold</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('*', '*')}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Italic (⌘I)"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">format_italic</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('~~', '~~')}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Strikethrough"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">format_strikethrough</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('`', '`')}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Inline Code"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">code</span>
+              </button>
+
+              <div className="h-4 w-[1px] bg-surface-container-high mx-1"></div>
+
+              {/* Block Formats */}
+              <button
+                onClick={() => insertFormatting('> ', '', false)}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Blockquote"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">format_quote</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('- ', '', false)}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Bullet List"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('- [ ] ', '', false)}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Task List"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">checklist</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('\n```typescript\n', '\n```\n', true)}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Code Block"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">data_object</span>
+              </button>
+
+              <div className="h-4 w-[1px] bg-surface-container-high mx-1"></div>
+
+              {/* Insertables */}
+              <button
+                onClick={() => insertFormatting('$$\n', '\n$$', true)}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="KaTeX Math Block"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">functions</span>
+              </button>
+              <button
+                onClick={() => insertFormatting('[', '](https://)')}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Insert Link"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">link</span>
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer disabled:opacity-50"
+                title="Upload Image"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {isUploadingImage ? 'sync' : 'image'}
+                </span>
+              </button>
+              <button
+                onClick={() => insertFormatting('\n| Feature | Status | SLA |\n|---|---|---|\n| Delta Sync | Active | 99.9% |\n', '', false)}
+                className="p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                title="Insert Table"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">table</span>
+              </button>
+            </div>
+
+            {/* Quick Shortcuts Pill */}
+            <div className="flex items-center gap-space-xs font-label-mono-sm text-label-mono-sm text-on-surface-variant/80 shrink-0 hidden sm:flex">
+              <span className="bg-surface-container px-1.5 py-0.5 rounded text-[10px]">Auto-Save: 2s</span>
+              <span className="bg-surface-container px-1.5 py-0.5 rounded text-[10px]">⌘S manual save</span>
             </div>
           </div>
         )}
 
-      </div>
+        {/* Read-Only Notice Bar */}
+        {isReadOnly && (
+          <div className="w-full bg-surface-container-high/60 border-b border-surface-container-highest px-gutter-desktop py-2 flex items-center justify-between text-xs text-secondary font-label-mono-sm">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px]">lock</span>
+              <span>Read-Only Mode: You have Viewer permissions for this document.</span>
+            </div>
+          </div>
+        )}
 
-      {/* SHARE MODAL */}
+        {/* Main Split Canvas */}
+        <div className={`w-full flex-1 grid ${
+          viewMode === 'split' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'
+        } min-h-[calc(100vh-12rem)] bg-surface-container-lowest`}>
+          
+          {/* LEFT PANE: Raw Markdown Editor */}
+          {(viewMode === 'split' || viewMode === 'editor') && (
+            <section aria-label="Raw Markdown Editor" className="flex flex-col bg-surface-container-low min-w-0 border-r border-surface-container-high/60">
+              {/* Editor Subheader */}
+              <div className="px-space-md py-1.5 bg-surface-container flex items-center justify-between font-label-mono-sm text-label-mono-sm text-on-surface-variant border-b border-surface-container-high/60">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[14px] text-primary-container">terminal</span>
+                  <span className="text-on-surface font-medium">source/{title ? `${title.slice(0, 20)}.md` : 'doc.md'}</span>
+                  <span className="text-[10px] px-1 rounded bg-surface-container-highest text-secondary">
+                    GFM Markdown
+                  </span>
+                </div>
+                <div className="flex items-center gap-space-sm text-[11px]">
+                  <span>Ln {cursorPosition.line}, Col {cursorPosition.col}</span>
+                  <span className="hidden sm:inline">Lines: {lineCount}</span>
+                </div>
+              </div>
+
+              {/* Editor Code Canvas with Line Numbers */}
+              <div className="flex-1 flex overflow-hidden relative">
+                {/* Line Numbers Gutter */}
+                <div className="py-space-md px-2 text-right text-outline select-none font-label-mono-sm text-label-mono-sm space-y-0.5 opacity-50 bg-surface-container-lowest/50 border-r border-surface-container-high/30 hidden sm:block">
+                  {Array.from({ length: Math.min(lineCount, 60) }, (_, i) => (
+                    <div key={i + 1} className="leading-relaxed">
+                      {String(i + 1).padStart(2, '0')}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Markdown Textarea */}
+                <textarea
+                  ref={textareaRef}
+                  value={content}
+                  disabled={isReadOnly}
+                  onChange={(e) => handleContentChange(e.target.value)}
+                  onSelect={handleTextareaSelect}
+                  onKeyUp={handleTextareaSelect}
+                  onClick={handleTextareaSelect}
+                  placeholder="# Write your Markdown knowledge document here..."
+                  className="flex-1 p-space-md font-code-block text-code-block bg-transparent text-on-surface focus:outline-none resize-none leading-relaxed placeholder:text-outline/40 overflow-y-auto selection:bg-primary-container selection:text-on-primary-container"
+                />
+              </div>
+            </section>
+          )}
+
+          {/* RIGHT PANE: Live Rendered Preview */}
+          {(viewMode === 'split' || viewMode === 'preview') && (
+            <section aria-label="Rendered Markdown Preview" className="flex flex-col bg-surface min-w-0">
+              {/* Preview Subheader */}
+              <div className="px-space-md py-1.5 bg-surface-container flex items-center justify-between font-label-mono-sm text-label-mono-sm text-on-surface-variant border-b border-surface-container-high/60">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[14px] text-secondary">visibility</span>
+                  <span className="text-on-surface font-medium">Rendered Article Output</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary-container/10 text-primary-container font-semibold">
+                    Live Preview
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyHtml}
+                    className="hover:text-primary text-[11px] flex items-center gap-0.5 cursor-pointer text-on-surface-variant"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">
+                      {copiedHtml ? 'done' : 'content_copy'}
+                    </span>
+                    <span>{copiedHtml ? 'Copied' : 'Copy Source'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Prose Content Stream */}
+              <div className="flex-1 p-space-lg md:p-space-xl max-w-3xl mx-auto w-full overflow-y-auto font-body-lg text-body-lg leading-relaxed text-on-surface">
+                {/* Header Title with Emerald Underline Accent */}
+                <div className="mb-space-lg pb-space-sm border-b border-surface-container-high">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-label-mono-sm text-[11px] px-2 py-0.5 rounded bg-surface-container text-primary-container font-semibold">
+                      {document.role || 'OWNER'}
+                    </span>
+                    <span className="font-label-mono-sm text-[11px] text-on-surface-variant">
+                      Updated {document.updatedAt ? new Date(document.updatedAt).toLocaleTimeString() : 'Just now'}
+                    </span>
+                  </div>
+                  <h1 className="font-display-hero text-headline-lg font-bold tracking-tight text-on-surface">
+                    {title || 'Untitled Document'}
+                  </h1>
+                </div>
+
+                {/* ReactMarkdown Formatted Output */}
+                <div className="prose prose-invert max-w-none space-y-4 text-on-surface">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ ...props }) => (
+                        <h1 className="font-headline-lg text-headline-lg font-bold text-on-surface mt-6 mb-3 border-b border-surface-container-highest pb-2" {...props} />
+                      ),
+                      h2: ({ ...props }) => (
+                        <h2 className="font-headline-md text-headline-md font-semibold text-primary mt-5 mb-2.5" {...props} />
+                      ),
+                      h3: ({ ...props }) => (
+                        <h3 className="font-headline-sm text-headline-sm font-semibold text-secondary mt-4 mb-2" {...props} />
+                      ),
+                      p: ({ ...props }) => (
+                        <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed my-2" {...props} />
+                      ),
+                      ul: ({ ...props }) => (
+                        <ul className="list-disc list-inside space-y-1 text-on-surface-variant my-2" {...props} />
+                      ),
+                      ol: ({ ...props }) => (
+                        <ol className="list-decimal list-inside space-y-1 text-on-surface-variant my-2" {...props} />
+                      ),
+                      li: ({ ...props }) => (
+                        <li className="font-body-sm text-body-sm" {...props} />
+                      ),
+                      blockquote: ({ ...props }) => (
+                        <blockquote className="my-3 p-space-md rounded bg-surface-container-low border-l-4 border-secondary-container text-on-surface font-body-sm" {...props} />
+                      ),
+                      code: ({ className, children, ...props }) => {
+                        const isBlock = className?.includes('language-');
+                        return isBlock ? (
+                          <div className="my-3 rounded-lg bg-surface-container-lowest overflow-hidden border border-surface-container-high shadow-md">
+                            <div className="px-3 py-1 bg-surface-container-high flex items-center justify-between font-label-mono-sm text-[10px] text-primary-container">
+                              <span>CODE BLOCK</span>
+                            </div>
+                            <pre className="p-3 text-xs font-code-block text-on-surface overflow-x-auto leading-relaxed">
+                              <code {...props}>{children}</code>
+                            </pre>
+                          </div>
+                        ) : (
+                          <code className="px-1.5 py-0.5 rounded bg-surface-container-high text-secondary font-code-inline text-code-inline" {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                      table: ({ ...props }) => (
+                        <div className="overflow-x-auto my-4 rounded border border-surface-container-high">
+                          <table className="w-full text-left text-xs font-label-ui border-collapse" {...props} />
+                        </div>
+                      ),
+                      th: ({ ...props }) => (
+                        <th className="bg-surface-container-high p-2 font-semibold text-on-surface border-b border-surface-container-highest" {...props} />
+                      ),
+                      td: ({ ...props }) => (
+                        <td className="p-2 border-b border-surface-container-high text-on-surface-variant" {...props} />
+                      ),
+                      img: ({ ...props }) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img className="max-w-full rounded-lg border border-surface-container-high my-3 shadow-md" alt="Uploaded Document Asset" {...props} />
+                      ),
+                    }}
+                  >
+                    {content || '*No content written yet. Click on the left editor to start typing.*'}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Document Status Bar (Footer Matrix) */}
+        <footer className="w-full bg-surface-container-lowest px-margin-tablet lg:px-gutter-desktop py-1 flex items-center justify-between font-label-mono-sm text-label-mono-sm text-on-surface-variant overflow-x-auto border-t border-surface-container-high/60">
+          <div className="flex items-center gap-space-md shrink-0">
+            <div className="flex items-center gap-1.5 text-on-surface">
+              <span className="material-symbols-outlined text-[14px] text-primary-container">sync_alt</span>
+              <span className="font-medium text-primary">Markdown GFM</span>
+            </div>
+            <span className="text-outline-variant">·</span>
+            <span>UTF-8</span>
+            <span className="text-outline-variant">·</span>
+            <span>{wordCount} words</span>
+            <span className="text-outline-variant">·</span>
+            <span>{readTime} min read</span>
+          </div>
+
+          <div className="flex items-center gap-space-md shrink-0">
+            <div className="flex items-center gap-1.5 text-primary">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+              <span>Spring Boot WSS: 0.8ms</span>
+            </div>
+            <span className="text-outline-variant">·</span>
+            <span className="text-secondary font-medium">Java 21 Engine</span>
+          </div>
+        </footer>
+      </main>
+
+      {/* Share Modal Dialog */}
       <ShareModal
         documentId={docId}
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        isOwner={isOwner}
+        isOwner={document.role === 'OWNER'}
       />
-
     </div>
   );
 }
