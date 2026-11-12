@@ -30,8 +30,9 @@ export function useDocumentSync({
     if (!documentId) return;
 
     // Connect to Spring Boot WebSocket STOMP endpoint
+    const brokerEndpoint = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws';
     const client = new Client({
-      brokerURL: 'ws://localhost:8080/ws',
+      brokerURL: brokerEndpoint,
       reconnectDelay: 4000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
