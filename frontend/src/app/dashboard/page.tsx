@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { DocumentItem } from '@/types/document';
 import AppHeader from '@/components/layout/AppHeader';
+import ShareModal from '@/components/ShareModal';
 
 interface WorkspaceItem {
   id: number;
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const [newWsDesc, setNewWsDesc] = useState('');
   const [favorites, setFavorites] = useState<number[]>([]);
   const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string } | null>(null);
+  const [shareDoc, setShareDoc] = useState<{ id: number; title: string } | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -612,6 +614,20 @@ export default function DashboardPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setShareDoc({ id: doc.id, title: doc.title });
+                                  }}
+                                  className="text-on-surface-variant hover:text-primary-container transition-colors p-1"
+                                  title="Share Document"
+                                  type="button"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">share</span>
+                                </button>
+                              )}
+
+                              {doc.role === 'OWNER' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     if (confirm('Delete this document?')) deleteMutation.mutate(doc.id);
                                   }}
                                   className="text-on-surface-variant hover:text-error transition-colors p-1"
@@ -690,6 +706,19 @@ export default function DashboardPage() {
                                       {favorites.includes(doc.id) ? 'star' : 'star_border'}
                                     </span>
                                   </button>
+                                  {doc.role === 'OWNER' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShareDoc({ id: doc.id, title: doc.title });
+                                      }}
+                                      className="p-1.5 text-on-surface-variant hover:text-primary-container transition-colors"
+                                      title="Share Document"
+                                      type="button"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">share</span>
+                                    </button>
+                                  )}
                                   {doc.role === 'OWNER' && (
                                     <button
                                       onClick={(e) => {
@@ -880,6 +909,15 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* RBAC Document Share Modal */}
+      {shareDoc && (
+        <ShareModal
+          isOpen={Boolean(shareDoc)}
+          onClose={() => setShareDoc(null)}
+          documentId={shareDoc.id}
+          documentTitle={shareDoc.title}
+        />
       )}
     </div>
   );

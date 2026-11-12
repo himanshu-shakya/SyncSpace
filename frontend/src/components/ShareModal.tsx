@@ -18,6 +18,7 @@ interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   isOwner?: boolean;
+  documentTitle?: string;
 }
 
 export default function ShareModal({
@@ -25,6 +26,7 @@ export default function ShareModal({
   isOpen,
   onClose,
   isOwner = true,
+  documentTitle,
 }: ShareModalProps) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
@@ -86,8 +88,8 @@ export default function ShareModal({
               <span className="material-symbols-outlined text-[20px]">group_add</span>
             </div>
             <div>
-              <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
-                Share Document
+              <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight truncate max-w-xs sm:max-w-md">
+                {documentTitle ? `Share "${documentTitle}"` : 'Share Document'}
               </h3>
               <p className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">
                 Role-Based Access Control (RBAC)
