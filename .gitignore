@@ -1,0 +1,23 @@
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backend
+backend/target/
+backend/uploads/
+backend/data/
+*.mv.db
+*.lock.db
+*.log
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+*.tsbuildinfo
+
