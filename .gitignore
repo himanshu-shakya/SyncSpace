@@ -21,3 +21,8 @@ frontend/.next/
 frontend/out/
 *.tsbuildinfo
 
+.neon
+node_modules/
+.env
+.env*
+!.env.example

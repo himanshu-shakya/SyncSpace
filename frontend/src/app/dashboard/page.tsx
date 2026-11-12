@@ -30,9 +30,13 @@ function DashboardContent() {
   const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string } | null>(null);
   const [shareDoc, setShareDoc] = useState<{ id: number; title: string } | null>(null);
 
-  // Synchronize activeTab whenever URL query changes (e.g. clicking sidebar All Docs, Favorites, etc.)
+  // Synchronize activeTab and search query whenever URL query changes
   useEffect(() => {
     const tabParam = searchParams.get('tab');
+    const queryParam = searchParams.get('q');
+    if (queryParam !== null) {
+      setSearchTerm(queryParam);
+    }
     if (tabParam && ['all', 'owned', 'shared', 'favorites', 'workspaces'].includes(tabParam)) {
       setActiveTab(tabParam as typeof activeTab);
     } else if (!tabParam) {

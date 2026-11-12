@@ -5,29 +5,20 @@ spring:
   application:
     name: syncspace-backend
 
-  # Database Configuration:
-  # Option 1: File-Backed Database (Saves all data to disk in ./data/ - never wiped on restart!)
+  # Neon PostgreSQL Database Configuration
   datasource:
-    url: jdbc:h2:file:./data/syncspace_db;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: 
-
-  # Option 2: Local PostgreSQL (Uncomment when PostgreSQL service is running)
-  # datasource:
-  #   url: jdbc:postgresql://localhost:5432/syncspace_db
-  #   username: postgres
-  #   password: postgres
-  #   driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://ep-silent-pine-a1ctlqbm-pooler.ap-southeast-1.aws.neon.tech:5432/neondb?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:neondb_owner}
+    password: ${SPRING_DATASOURCE_PASSWORD:npg_MK1Ncmk0deRE}
+    driver-class-name: org.postgresql.Driver
 
   # Spring Data JPA / Hibernate Configuration
   jpa:
     hibernate:
-      # 'update' automatically updates table schemas based on @Entity classes without dropping data
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
     open-in-view: false
-
