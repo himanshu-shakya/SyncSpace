@@ -138,5 +138,29 @@ public class AuthService {
                 user.getRole()
         );
     }
+
+    @Transactional
+    public AuthResponse updateProfile(String email, String newFullName, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+
+        if (newFullName != null && !newFullName.isBlank()) {
+            user.setFullName(newFullName.trim());
+        }
+
+        if (newPassword != null && !newPassword.isBlank()) {
+            if (newPassword.length() < 6) {
+                throw new IllegalArgumentException("New password must be at least 6 characters.");
+            }
+            if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+                throw new IllegalArgumentException("Current password does not match.");
+            }
+            user.setPasswordHash(passwordEncoder.encode(newPassword));
+        }
+
+        User updated = userRepository.save(user);
+        String token = jwtUtils.generateToken(updated.getEmail());
+        return new AuthResponse(token, updated.getId(), updated.getEmail(), updated.getFullName(), updated.getRole());
+    }
 }
 
