@@ -225,24 +225,25 @@ export default function AppSidebar({
           </div>
         )}
 
-        {/* Quick Search */}
-        {!isCollapsed && (
-          <div className="px-space-md py-space-xs">
-            <button
-              onClick={() => setIsCommandPaletteOpen(true)}
-              className="w-full flex items-center justify-between px-space-sm py-space-xs rounded bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all cursor-pointer"
-              type="button"
-            >
-              <div className="flex items-center gap-space-sm">
-                <span className="material-symbols-outlined text-[16px]">search</span>
-                <span className="font-label-ui text-label-ui">Find or jump to...</span>
-              </div>
-              <kbd className="font-label-mono-sm text-label-mono-sm px-space-xs py-0.5 rounded bg-surface-container-high text-on-surface-variant border border-surface-container-highest">
+        {/* Global Search */}
+        <div className="px-space-md py-space-xs">
+          <button
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className={`w-full flex items-center ${isCollapsed ? 'justify-center p-2' : 'justify-between px-space-sm py-space-xs'} rounded bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all cursor-pointer border border-surface-container-high/60 shadow-inner`}
+            type="button"
+            title="Global Search across all documents (⌘K)"
+          >
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[18px] text-primary-container">search</span>
+              {!isCollapsed && <span className="font-label-ui text-label-ui font-medium">Global Search...</span>}
+            </div>
+            {!isCollapsed && (
+              <kbd className="font-label-mono-sm text-[10px] px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant border border-surface-container-highest">
                 ⌘K
               </kbd>
-            </button>
-          </div>
-        )}
+            )}
+          </button>
+        </div>
 
         {/* Primary CTA: New Document */}
         <div className="px-space-md pt-space-xs pb-space-sm">

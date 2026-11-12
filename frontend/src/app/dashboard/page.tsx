@@ -267,24 +267,8 @@ function DashboardContent() {
                 )}
               </div>
 
-              {/* Search & View Mode Controls */}
-              <div className="flex items-center gap-space-sm w-full md:w-auto justify-end">
-                <div className="relative w-full md:w-80">
-                  <span className="material-symbols-outlined absolute left-space-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">
-                    search
-                  </span>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search docs, tags, syntax..."
-                    className="w-full bg-surface-container text-on-surface font-body-sm text-body-sm pl-9 pr-12 py-1.5 rounded focus:outline-none focus:bg-surface-container-high border border-surface-container-highest/40 placeholder:text-outline transition-colors"
-                  />
-                  <kbd className="absolute right-space-sm top-1/2 -translate-y-1/2 font-label-mono-sm text-label-mono-sm text-on-surface-variant border border-surface-container-highest px-1.5 py-0.5 rounded">
-                    ⌘K
-                  </kbd>
-                </div>
-
+              {/* View Mode Controls */}
+              <div className="flex items-center gap-space-sm justify-end">
                 {/* Grid vs List Toggle */}
                 <div className="flex items-center p-0.5 rounded bg-surface-container border border-surface-container-highest/60">
                   <button
@@ -344,10 +328,8 @@ function DashboardContent() {
               ))}
             </div>
 
-            {/* Main Workspace Split: Document Center (Bento + Feed) */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter-desktop">
-              {/* Primary Core: Pinned Cards + Data Stream Table (8 Cols) */}
-              <div className="xl:col-span-8 flex flex-col gap-space-xl">
+            {/* Main Workspace Document Center */}
+            <div className="w-full flex flex-col gap-space-xl">
                 
                 {/* Pinned Section (Top 3 Bento Cards) */}
                 {pinnedDocs.length > 0 && activeTab === 'all' && !searchTerm && (
@@ -575,7 +557,7 @@ function DashboardContent() {
 
                   {/* GRID VIEW */}
                   {!isLoading && !isError && filteredDocuments.length > 0 && viewMode === 'grid' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-md">
                       {filteredDocuments.map((doc) => (
                         <div
                           key={doc.id}
@@ -759,104 +741,6 @@ function DashboardContent() {
                   )}
                 </div>
               )}
-              </div>
-
-              {/* Right Rail: Workspace Activity Pulse & Real-Time Node Health (4 Cols) */}
-              <div className="xl:col-span-4 flex flex-col gap-space-lg">
-                {/* Cluster Activity Feed */}
-                <div className="flex flex-col p-space-md rounded-xl bg-surface-container-low border border-surface-container-high shadow-md">
-                  <div className="flex items-center justify-between pb-space-sm mb-space-sm border-b border-surface-container-high/60">
-                    <h3 className="font-body-md text-body-md text-on-surface font-semibold tracking-tight">
-                      Cluster Activity
-                    </h3>
-                    <span className="font-label-mono-sm text-[11px] text-primary flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
-                      Live
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-space-md mt-space-xs">
-                    <div className="flex items-start gap-space-sm">
-                      <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px] text-primary-container font-bold font-label-mono-sm">
-                        SC
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <p className="font-body-sm text-body-sm text-on-surface leading-snug">
-                          <span className="font-medium text-primary">Sarah Connor</span> committed changes to{' '}
-                          <span className="text-on-surface font-medium">Multiplayer WebSocket Protocol</span>
-                        </p>
-                        <span className="font-label-mono-sm text-[11px] text-on-surface-variant mt-0.5">
-                          Just now · +142 -18
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-space-sm">
-                      <div className="w-6 h-6 rounded-full bg-secondary-container/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px] text-secondary font-bold font-label-mono-sm">
-                        ER
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <p className="font-body-sm text-body-sm text-on-surface leading-snug">
-                          <span className="font-medium text-on-surface">Elena Rostova</span> synchronized{' '}
-                          <span className="text-on-surface font-medium">API Specifications</span>
-                        </p>
-                        <span className="font-label-mono-sm text-[11px] text-on-surface-variant mt-0.5">
-                          28m ago · CRDT delta merge
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-space-sm">
-                      <div className="w-6 h-6 rounded-full bg-tertiary-container/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px] text-tertiary-fixed-dim font-bold font-label-mono-sm">
-                        DK
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <p className="font-body-sm text-body-sm text-on-surface leading-snug">
-                          <span className="font-medium text-on-surface">David Kim</span> flushed memory snapshot
-                        </p>
-                        <span className="font-label-mono-sm text-[11px] text-on-surface-variant mt-0.5">
-                          1h ago · PostgreSQL WAL
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Node Health & Consensus Monitor */}
-                <div className="flex flex-col p-space-md rounded-xl bg-surface-container-low border border-surface-container-high shadow-md">
-                  <div className="flex items-center justify-between mb-space-sm">
-                    <span className="font-label-mono-sm text-[11px] text-on-surface-variant uppercase tracking-wider">
-                      Node Health &amp; STOMP Socket
-                    </span>
-                    <span className="font-label-mono-sm text-label-mono-sm text-primary font-medium">
-                      100% OK
-                    </span>
-                  </div>
-
-                  <div className="w-full h-14 py-1">
-                    <svg className="w-full h-full text-primary-container overflow-visible" fill="none" viewBox="0 0 260 50">
-                      <path
-                        d="M0,35 Q30,12 60,28 T120,22 T180,38 T240,18 L260,25"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="1.5"
-                      />
-                    </svg>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-space-sm pt-space-xs border-t border-surface-container-high/60">
-                    <div className="flex flex-col">
-                      <span className="font-label-mono-sm text-[10px] text-on-surface-variant">CONSENSUS</span>
-                      <span className="font-label-mono-sm text-body-sm text-on-surface font-medium">Synced</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-label-mono-sm text-[10px] text-on-surface-variant">DRIFT</span>
-                      <span className="font-label-mono-sm text-body-sm text-primary font-medium">0.00 ms</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
