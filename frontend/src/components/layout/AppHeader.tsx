@@ -3,12 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { useSidebar } from '@/components/layout/SidebarContext';
 
 interface AppHeaderProps {
   isSidebarCollapsed?: boolean;
   breadcrumbs?: Array<{ label: string; href?: string }>;
   onShareClick?: () => void;
   showShareButton?: boolean;
+  onToggleMobileSidebar?: () => void;
 }
 
 export default function AppHeader({
@@ -20,7 +22,10 @@ export default function AppHeader({
   ],
   onShareClick,
   showShareButton = true,
+  onToggleMobileSidebar,
 }: AppHeaderProps) {
+  const { toggleMobile } = useSidebar();
+  const handleToggle = onToggleMobileSidebar || toggleMobile;
   const [backendStatus, setBackendStatus] = useState<'connected' | 'offline'>('connected');
   const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string } | null>(null);
 
@@ -48,8 +53,18 @@ export default function AppHeader({
     >
       <div className="h-14 w-full px-4 sm:px-6 flex items-center justify-between gap-4">
         
-        {/* Left: Dynamic Breadcrumb Path */}
+        {/* Left: Dynamic Breadcrumb Path & Mobile Menu Toggle */}
         <div className="flex items-center gap-space-xs font-label-ui text-label-ui text-on-surface-variant overflow-hidden truncate">
+          {handleToggle && (
+            <button
+              onClick={handleToggle}
+              className="md:hidden p-1.5 -ml-1 mr-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer shrink-0"
+              title="Open Navigation"
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[20px]">menu</span>
+            </button>
+          )}
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={crumb.label}>
               {idx > 0 && <span className="text-outline-variant">/</span>}

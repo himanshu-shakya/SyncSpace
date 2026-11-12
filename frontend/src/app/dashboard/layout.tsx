@@ -1,27 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import AppSidebar from '@/components/layout/AppSidebar';
+import { SidebarProvider, useSidebar } from '@/components/layout/SidebarContext';
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+  const { isCollapsed, toggleCollapsed, isMobileOpen, setIsMobileOpen } = useSidebar();
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex">
-      {/* Persistent Stitch Left Navigation Sidebar */}
+      {/* Persistent Stitch Left Navigation Sidebar & Mobile Drawer */}
       <AppSidebar
         isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+        onToggleCollapse={toggleCollapsed}
+        isMobileOpen={isMobileOpen}
+        onCloseMobile={() => setIsMobileOpen(false)}
       />
 
       {/* Main Content Viewport */}
       <div
         className={`flex-1 transition-all duration-200 min-h-screen flex flex-col ${
-          isCollapsed ? 'ml-16' : 'ml-0 md:ml-64'
+          isCollapsed ? 'ml-0 md:ml-16' : 'ml-0 md:ml-64'
         }`}
       >
         {children}
@@ -30,3 +29,14 @@ export default function DashboardLayout({
   );
 }
 
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <SidebarProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </SidebarProvider>
+  );
+}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import CommandPalette from '@/components/CommandPalette';
 
 interface WorkspaceItem {
   id: number;
@@ -15,6 +16,8 @@ interface WorkspaceItem {
 interface AppSidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
   selectedWorkspaceId?: number | null;
   onSelectWorkspace?: (id: number | null) => void;
   onOpenNewDoc?: () => void;
@@ -24,6 +27,8 @@ interface AppSidebarProps {
 export default function AppSidebar({
   isCollapsed = false,
   onToggleCollapse,
+  isMobileOpen = false,
+  onCloseMobile,
   selectedWorkspaceId = null,
   onSelectWorkspace,
   onOpenNewDoc,
@@ -35,6 +40,24 @@ export default function AppSidebar({
   const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string; role?: string } | null>(null);
   const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    // Close mobile sidebar on navigation
+    if (onCloseMobile) onCloseMobile();
+  }, [pathname]);
+
+  useEffect(() => {
+    // Global shortcut for Command Palette (⌘K or Ctrl+K)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('syncspace_user');
@@ -93,11 +116,22 @@ export default function AppSidebar({
   ];
 
   return (
-    <aside
-      className={`fixed left-0 top-0 h-full bg-surface-container-low z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high/60 transition-all duration-200 ${
-        isCollapsed ? 'w-16' : 'w-64'
-      }`}
-    >
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
+          onClick={onCloseMobile}
+        />
+      )}
+
+      <aside
+        className={`fixed left-0 top-0 h-full bg-surface-container-low z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-surface-container-high/60 transition-transform md:transition-all duration-200 ${
+          isCollapsed ? 'w-16' : 'w-64'
+        } ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
       <div className="flex flex-col">
         {/* Top Logo & Title */}
         <div className="px-space-md pt-space-md pb-space-sm flex items-center justify-between">
@@ -193,18 +227,15 @@ export default function AppSidebar({
         {!isCollapsed && (
           <div className="px-space-md py-space-xs">
             <button
-              onClick={() => {
-                const searchInput = document.getElementById('hubSearchInput');
-                if (searchInput) searchInput.focus();
-              }}
-              className="w-full flex items-center justify-between px-space-sm py-space-xs rounded bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all"
+              onClick={() => setIsCommandPaletteOpen(true)}
+              className="w-full flex items-center justify-between px-space-sm py-space-xs rounded bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all cursor-pointer"
               type="button"
             >
               <div className="flex items-center gap-space-sm">
                 <span className="material-symbols-outlined text-[16px]">search</span>
                 <span className="font-label-ui text-label-ui">Find or jump to...</span>
               </div>
-              <kbd className="font-label-mono-sm text-label-mono-sm px-space-xs py-0.5 rounded bg-surface-container-high text-on-surface-variant">
+              <kbd className="font-label-mono-sm text-label-mono-sm px-space-xs py-0.5 rounded bg-surface-container-high text-on-surface-variant border border-surface-container-highest">
                 ⌘K
               </kbd>
             </button>
@@ -306,6 +337,13 @@ export default function AppSidebar({
         )}
       </div>
     </aside>
+
+    {/* Global Command Palette (⌘K) */}
+    <CommandPalette
+      isOpen={isCommandPaletteOpen}
+      onClose={() => setIsCommandPaletteOpen(false)}
+    />
+  </>
   );
 }
 

@@ -60,7 +60,7 @@ export default function LandingPage() {
 <span className="material-symbols-outlined text-[14px] text-primary-container">code</span>
 </div>
 {/*  Headline & Subtitle  */}
-<h1 className="font-display-hero text-display-hero tracking-tight text-on-surface max-w-4xl mx-auto mb-space-md">
+<h1 className="font-display-hero text-display-hero-mobile md:text-display-hero tracking-tight text-on-surface max-w-4xl mx-auto mb-space-md">
         Your ideas. <span className="bg-gradient-to-r from-on-surface via-primary to-primary-container bg-clip-text text-transparent">One collaborative space.</span>
 </h1>
 <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-space-xl">
