@@ -18,7 +18,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'owned' | 'shared' | 'favorites'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'owned' | 'shared' | 'favorites' | 'workspaces'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedWorkspace, setSelectedWorkspace] = useState<number | null>(null);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
@@ -309,6 +309,7 @@ export default function DashboardPage() {
                 { id: 'owned', label: 'My Documents', icon: 'person', count: documents.filter(d => d.role === 'OWNER').length },
                 { id: 'shared', label: 'Shared with Me', icon: 'group', count: documents.filter(d => d.role !== 'OWNER').length },
                 { id: 'favorites', label: 'Favorites', icon: 'star', count: favorites.length },
+                { id: 'workspaces', label: 'Workspaces', icon: 'workspaces', count: workspaces.length },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -400,21 +401,118 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Main Documents Data Section */}
-                <div className="flex flex-col gap-space-md">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-space-sm">
-                      <span className="material-symbols-outlined text-secondary text-[20px]">
-                        dataset
-                      </span>
-                      <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
-                        Active Repositories &amp; Documents
-                      </h2>
+                {/* WORKSPACES TAB VIEW */}
+                {activeTab === 'workspaces' && (
+                  <div className="flex flex-col gap-space-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-space-sm">
+                        <span className="material-symbols-outlined text-secondary text-[20px]">
+                          workspaces
+                        </span>
+                        <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
+                          Knowledge Workspaces
+                        </h2>
+                      </div>
+                      <button
+                        onClick={() => setShowWorkspaceModal(true)}
+                        className="flex items-center gap-1 px-space-md py-1.5 rounded bg-primary-container text-on-primary-container font-label-ui text-label-ui font-semibold shadow-sm hover:bg-secondary-container transition-all cursor-pointer"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">add</span>
+                        <span>Create Workspace</span>
+                      </button>
                     </div>
-                    <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">
-                      Showing {filteredDocuments.length} of {documents.length}
-                    </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-md">
+                      {workspaces.map((ws) => {
+                        const wsDocCount = documents.filter((d) => d.workspaceId === ws.id).length;
+                        return (
+                          <div
+                            key={ws.id}
+                            className="p-space-md rounded-xl bg-surface-container-low border border-surface-container-high hover:border-primary-container/40 transition-all flex flex-col justify-between shadow-sm group"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-space-sm">
+                                <div className="w-8 h-8 rounded-lg bg-surface-container-high border border-surface-container-highest flex items-center justify-center text-primary-container">
+                                  <span className="material-symbols-outlined text-[18px]">folder</span>
+                                </div>
+                                <span className="font-label-mono-sm text-[11px] text-secondary bg-surface-container px-2 py-0.5 rounded">
+                                  {wsDocCount} {wsDocCount === 1 ? 'doc' : 'docs'}
+                                </span>
+                              </div>
+                              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface group-hover:text-primary-container transition-colors truncate">
+                                {ws.name}
+                              </h3>
+                              <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2 leading-relaxed">
+                                {ws.description || 'Dedicated workspace for specifications and research.'}
+                              </p>
+                            </div>
+
+                            <div className="mt-space-md pt-space-xs border-t border-surface-container-high flex items-center justify-between">
+                              <button
+                                onClick={() => {
+                                  setSelectedWorkspace(ws.id);
+                                  setActiveTab('all');
+                                }}
+                                className="font-label-ui text-label-ui text-primary-container hover:underline transition-colors flex items-center gap-1 cursor-pointer"
+                                type="button"
+                              >
+                                <span>Open Workspace</span>
+                                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedWorkspace(ws.id);
+                                  createMutation.mutate();
+                                }}
+                                className="font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1 cursor-pointer"
+                                type="button"
+                                title="Add Document"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                                <span>Doc</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Create Workspace Dotted Card */}
+                      <button
+                        onClick={() => setShowWorkspaceModal(true)}
+                        className="p-space-lg rounded-xl border border-dashed border-surface-container-high hover:border-primary-container/60 bg-surface-container-lowest/50 hover:bg-surface-container-low transition-all flex flex-col items-center justify-center text-center group cursor-pointer min-h-[170px]"
+                        type="button"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary-container group-hover:scale-110 transition-transform mb-2">
+                          <span className="material-symbols-outlined text-[20px]">create_new_folder</span>
+                        </div>
+                        <span className="font-label-ui text-label-ui text-on-surface font-semibold group-hover:text-primary transition-colors">
+                          New Workspace
+                        </span>
+                        <span className="font-body-sm text-body-sm text-on-surface-variant text-[11px] mt-0.5">
+                          Create dedicated team space
+                        </span>
+                      </button>
+                    </div>
                   </div>
+                )}
+
+                {/* Main Documents Data Section (Shown when activeTab !== 'workspaces') */}
+                {activeTab !== 'workspaces' && (
+                  <div className="flex flex-col gap-space-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-space-sm">
+                        <span className="material-symbols-outlined text-secondary text-[20px]">
+                          dataset
+                        </span>
+                        <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
+                          Active Repositories &amp; Documents
+                        </h2>
+                      </div>
+                      <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">
+                        Showing {filteredDocuments.length} of {documents.length}
+                      </span>
+                    </div>
 
                   {/* Loading State */}
                   {isLoading && (
@@ -617,6 +715,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
+              )}
               </div>
 
               {/* Right Rail: Workspace Activity Pulse & Real-Time Node Health (4 Cols) */}
