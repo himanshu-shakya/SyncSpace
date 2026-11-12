@@ -62,7 +62,7 @@ export default function DocumentEditorPage() {
   }, [document]);
 
   // 2. Real-Time WebSocket Collaboration hook
-  const { sendEdit } = useDocumentSync({
+  const { sendEdit, activePeers } = useDocumentSync({
     documentId: docId,
     userEmail: currentUser?.email,
     userName: currentUser?.fullName,
@@ -375,35 +375,42 @@ export default function DocumentEditorPage() {
           <div className="flex items-center gap-space-md justify-between xl:justify-end flex-wrap">
             {/* Live Collaborators Avatars */}
             <div className="flex items-center gap-space-sm bg-surface-container px-space-sm py-1 rounded border border-surface-container-highest/60">
-              <div className="flex items-center -space-x-2">
-                {/* Active user */}
-                <div className="relative group cursor-pointer" title={`${currentUser?.fullName || 'You'} (Active)`}>
-                  <div className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-primary-container font-label-mono-sm text-label-mono-sm font-semibold shadow-[0_0_0_2px_#00f5a0]">
-                    {currentUser?.fullName?.substring(0, 2).toUpperCase() || 'ME'}
+              <div className="flex items-center -space-x-1.5">
+                {/* Active Current User */}
+                <div className="relative group cursor-pointer" title={`${currentUser?.fullName || 'You'} (You - Active)`}>
+                  <div className="w-7 h-7 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-mono-sm text-xs font-bold shadow-[0_0_0_2px_rgba(0,245,160,0.5)]">
+                    {currentUser?.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'ME'}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary-container shadow-[0_0_6px_#00f5a0]"></span>
                 </div>
 
-                {/* Simulated peers */}
-                <div className="relative group cursor-pointer" title="Sarah C. (Spring Boot Node)">
-                  <div className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-secondary font-label-mono-sm text-label-mono-sm font-semibold shadow-[0_0_0_2px_#00d7f4]">
-                    SC
-                  </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_6px_#00d7f4]"></span>
-                </div>
-
-                <div className="relative group cursor-pointer" title="Alex M. (CRDT Sync Engine)">
-                  <div className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-tertiary-fixed font-label-mono-sm text-label-mono-sm font-medium shadow-[0_0_0_2px_#1c2024]">
-                    AM
-                  </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-outline"></span>
-                </div>
+                {/* Actual Real Collaborators Accessing Document */}
+                {activePeers.map((peer) => {
+                  const initial = peer.name ? peer.name.charAt(0).toUpperCase() : peer.email.charAt(0).toUpperCase();
+                  return (
+                    <div
+                      key={peer.email}
+                      className="relative group cursor-pointer animate-in fade-in zoom-in duration-200"
+                      title={`${peer.name || peer.email} (Viewing document)`}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-label-mono-sm text-xs font-bold shadow-[0_0_0_2px_rgba(0,215,244,0.5)]">
+                        {initial}
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_#00d7f4]"></span>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* Status Badge */}
+              <span className="text-[11px] font-label-mono-sm text-on-surface-variant font-medium select-none">
+                {activePeers.length === 0 ? 'Only you' : `${activePeers.length + 1} active`}
+              </span>
 
               {document.role === 'OWNER' && (
                 <button
                   onClick={() => setIsShareModalOpen(true)}
-                  className="flex items-center gap-1 font-label-ui text-label-ui text-primary-fixed hover:text-primary transition-colors pl-1 cursor-pointer"
+                  className="flex items-center gap-1 font-label-ui text-label-ui text-primary-fixed hover:text-primary transition-colors pl-1 cursor-pointer border-l border-surface-container-highest/60 ml-1"
                   type="button"
                 >
                   <span className="material-symbols-outlined text-[16px]">person_add</span>

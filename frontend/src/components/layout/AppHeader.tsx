@@ -101,19 +101,6 @@ export default function AppHeader({
             <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">0ms</span>
           </div>
 
-          {/* Peer Presence Avatars */}
-          <div className="hidden md:flex items-center -space-x-1.5 font-label-mono-sm text-label-mono-sm">
-            <div className="w-6 h-6 rounded-full bg-surface-container-high border border-[#101418] flex items-center justify-center text-on-surface text-[10px]">
-              TL
-            </div>
-            <div className="w-6 h-6 rounded-full bg-surface-variant border border-[#101418] flex items-center justify-center text-secondary text-[10px]">
-              SC
-            </div>
-            <div className="w-6 h-6 rounded-full bg-primary-container border border-[#101418] flex items-center justify-center text-on-primary-container font-semibold text-[10px]">
-              +3
-            </div>
-          </div>
-
           {/* Share Action */}
           {showShareButton && onShareClick && (
             <button

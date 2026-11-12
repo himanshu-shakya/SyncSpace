@@ -11,6 +11,12 @@ export interface SyncMessage {
   timestamp: string;
 }
 
+export interface ActivePeer {
+  email: string;
+  name: string;
+  lastSeen: number;
+}
+
 export function useDocumentSync({
   documentId,
   userEmail,
@@ -25,8 +31,9 @@ export function useDocumentSync({
   const stompClientRef = useRef<Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastEditor, setLastEditor] = useState<string | null>(null);
+  const [activePeers, setActivePeers] = useState<ActivePeer[]>([]);
 
-  // Use refs for callbacks and dynamic user info to prevent re-creating STOMP client on typing
+  // Store mutable references to avoid re-triggering STOMP client recreation
   const onRemoteUpdateRef = useRef(onRemoteUpdate);
   onRemoteUpdateRef.current = onRemoteUpdate;
 
@@ -50,6 +57,21 @@ export function useDocumentSync({
       onConnect: () => {
         setIsConnected(true);
 
+        // Announce presence (JOIN)
+        if (userEmailRef.current) {
+          client.publish({
+            destination: `/app/document/${documentId}/edit`,
+            body: JSON.stringify({
+              documentId: Number(documentId),
+              senderEmail: userEmailRef.current,
+              senderName: userNameRef.current || 'Collaborator',
+              title: '',
+              content: '',
+              type: 'JOIN',
+            }),
+          });
+        }
+
         // Subscribe to live broadcast topic for this document
         client.subscribe(`/topic/document/${documentId}`, (message) => {
           try {
@@ -57,8 +79,42 @@ export function useDocumentSync({
             const myEmail = userEmailRef.current?.trim().toLowerCase();
             const senderEmail = data.senderEmail?.trim().toLowerCase();
 
-            // Only update state if changes came from another collaborator
-            if (!myEmail || senderEmail !== myEmail) {
+            // Track active peer if message is from another user
+            if (senderEmail && (!myEmail || senderEmail !== myEmail)) {
+              if (data.type === 'LEAVE') {
+                setActivePeers((prev) => prev.filter((p) => p.email.toLowerCase() !== senderEmail));
+              } else {
+                setActivePeers((prev) => {
+                  const filtered = prev.filter((p) => p.email.toLowerCase() !== senderEmail);
+                  return [
+                    ...filtered,
+                    {
+                      email: senderEmail,
+                      name: data.senderName || 'Collaborator',
+                      lastSeen: Date.now(),
+                    },
+                  ];
+                });
+              }
+
+              // If it's a join message, respond with presence so newcomer sees current viewers
+              if (data.type === 'JOIN' && myEmail) {
+                client.publish({
+                  destination: `/app/document/${documentId}/edit`,
+                  body: JSON.stringify({
+                    documentId: Number(documentId),
+                    senderEmail: userEmailRef.current,
+                    senderName: userNameRef.current || 'Collaborator',
+                    title: '',
+                    content: '',
+                    type: 'PING',
+                  }),
+                });
+              }
+            }
+
+            // Remote document content update
+            if (data.type === 'EDIT' && (!myEmail || senderEmail !== myEmail)) {
               setLastEditor(data.senderName);
               if (onRemoteUpdateRef.current) {
                 onRemoteUpdateRef.current(data.title, data.content, data.senderName);
@@ -83,7 +139,31 @@ export function useDocumentSync({
     client.activate();
     stompClientRef.current = client;
 
+    // Heartbeat cleanup for inactive peers (> 60s)
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      setActivePeers((prev) => prev.filter((p) => now - p.lastSeen < 60000));
+    }, 15000);
+
     return () => {
+      clearInterval(cleanupInterval);
+      if (client.connected && userEmailRef.current) {
+        try {
+          client.publish({
+            destination: `/app/document/${documentId}/edit`,
+            body: JSON.stringify({
+              documentId: Number(documentId),
+              senderEmail: userEmailRef.current,
+              senderName: userNameRef.current || 'Collaborator',
+              title: '',
+              content: '',
+              type: 'LEAVE',
+            }),
+          });
+        } catch {
+          // ignore disconnect send errors
+        }
+      }
       client.deactivate();
       stompClientRef.current = null;
     };
@@ -110,5 +190,5 @@ export function useDocumentSync({
     [documentId]
   );
 
-  return { isConnected, lastEditor, sendEdit };
+  return { isConnected, lastEditor, activePeers, sendEdit };
 }
