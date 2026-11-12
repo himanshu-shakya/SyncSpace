@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import AppSidebar from '@/components/layout/AppSidebar';
 import { SidebarProvider, useSidebar } from '@/components/layout/SidebarContext';
 
@@ -9,12 +9,14 @@ function SettingsLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex">
-      <AppSidebar
-        isCollapsed={isCollapsed}
-        onToggleCollapse={toggleCollapsed}
-        isMobileOpen={isMobileOpen}
-        onCloseMobile={() => setIsMobileOpen(false)}
-      />
+      <Suspense fallback={<aside className="w-64 bg-surface-container-low" />}>
+        <AppSidebar
+          isCollapsed={isCollapsed}
+          onToggleCollapse={toggleCollapsed}
+          isMobileOpen={isMobileOpen}
+          onCloseMobile={() => setIsMobileOpen(false)}
+        />
+      </Suspense>
 
       <div
         className={`flex-1 transition-all duration-200 min-h-screen flex flex-col ${

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { DocumentItem } from '@/types/document';
@@ -14,8 +14,9 @@ interface WorkspaceItem {
   description: string;
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
@@ -28,6 +29,16 @@ export default function DashboardPage() {
   const [favorites, setFavorites] = useState<number[]>([]);
   const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string } | null>(null);
   const [shareDoc, setShareDoc] = useState<{ id: number; title: string } | null>(null);
+
+  // Synchronize activeTab whenever URL query changes (e.g. clicking sidebar All Docs, Favorites, etc.)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['all', 'owned', 'shared', 'favorites', 'workspaces'].includes(tabParam)) {
+      setActiveTab(tabParam as typeof activeTab);
+    } else if (!tabParam) {
+      setActiveTab('all');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setIsClient(true);
@@ -315,7 +326,10 @@ export default function DashboardPage() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  onClick={() => {
+                    setActiveTab(tab.id as typeof activeTab);
+                    router.push(`/dashboard?tab=${tab.id}`);
+                  }}
                   className={`flex items-center gap-space-xs px-space-md py-1.5 rounded-full font-label-ui text-label-ui transition-all cursor-pointer ${
                     activeTab === tab.id
                       ? 'bg-primary-container/15 text-primary-container border border-primary-container/40 font-semibold'
@@ -920,5 +934,19 @@ export default function DashboardPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-surface flex items-center justify-center">
+          <span className="w-8 h-8 border-2 border-primary-container border-t-transparent rounded-full animate-spin"></span>
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }

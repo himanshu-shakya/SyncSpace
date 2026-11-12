@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import AppSidebar from '@/components/layout/AppSidebar';
 import { SidebarProvider, useSidebar } from '@/components/layout/SidebarContext';
 
@@ -10,12 +10,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-surface text-on-surface flex">
       {/* Persistent Stitch Left Navigation Sidebar & Mobile Drawer */}
-      <AppSidebar
-        isCollapsed={isCollapsed}
-        onToggleCollapse={toggleCollapsed}
-        isMobileOpen={isMobileOpen}
-        onCloseMobile={() => setIsMobileOpen(false)}
-      />
+      <Suspense fallback={<aside className="w-64 bg-surface-container-low" />}>
+        <AppSidebar
+          isCollapsed={isCollapsed}
+          onToggleCollapse={toggleCollapsed}
+          isMobileOpen={isMobileOpen}
+          onCloseMobile={() => setIsMobileOpen(false)}
+        />
+      </Suspense>
 
       {/* Main Content Viewport */}
       <div

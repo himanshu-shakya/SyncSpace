@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import CommandPalette from '@/components/CommandPalette';
@@ -36,6 +36,8 @@ export default function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams ? searchParams.get('tab') : null;
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string; role?: string } | null>(null);
   const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false);
@@ -107,12 +109,12 @@ export default function AppSidebar({
     : 'SyncSpace Knowledge Hub';
 
   const navItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: 'space_dashboard' },
-    { label: 'All Docs', path: '/dashboard', query: '?tab=all', icon: 'article' },
-    { label: 'Favorites', path: '/dashboard', query: '?tab=favorites', icon: 'star' },
-    { label: 'Shared with Me', path: '/dashboard', query: '?tab=shared', icon: 'group' },
-    { label: 'Workspaces', path: '/dashboard', query: '?tab=workspaces', icon: 'workspaces' },
-    { label: 'Settings', path: '/settings', icon: 'settings' },
+    { label: 'Dashboard', path: '/dashboard', tab: null, icon: 'space_dashboard' },
+    { label: 'All Docs', path: '/dashboard', tab: 'all', icon: 'article' },
+    { label: 'Favorites', path: '/dashboard', tab: 'favorites', icon: 'star' },
+    { label: 'Shared with Me', path: '/dashboard', tab: 'shared', icon: 'group' },
+    { label: 'Workspaces', path: '/dashboard', tab: 'workspaces', icon: 'workspaces' },
+    { label: 'Settings', path: '/settings', tab: null, icon: 'settings' },
   ];
 
   return (
@@ -261,18 +263,25 @@ export default function AppSidebar({
         {/* Main Navigation List */}
         <nav className="flex flex-col gap-0.5 px-space-sm">
           {navItems.map((item) => {
-            const isActive = pathname === item.path && (!item.query || pathname.includes(item.path));
+            const isActive =
+              item.path === '/settings'
+                ? pathname === '/settings'
+                : item.tab
+                ? pathname === '/dashboard' && currentTab === item.tab
+                : pathname === '/dashboard' && (!currentTab || currentTab === 'all');
+            const href = item.tab ? `${item.path}?tab=${item.tab}` : item.path;
+
             return (
               <Link
                 key={item.label}
-                href={`${item.path}${item.query || ''}`}
+                href={href}
                 className={`flex items-center gap-space-sm px-space-sm py-1.5 rounded transition-colors ${
                   isActive
-                    ? 'bg-surface-container-high text-on-surface font-medium'
+                    ? 'bg-surface-container-high text-on-surface font-semibold shadow-sm'
                     : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
                 }`}
               >
-                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-primary-container' : ''}`}>
+                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-primary-container font-bold' : ''}`}>
                   {item.icon}
                 </span>
                 {!isCollapsed && <span className="font-label-ui text-label-ui">{item.label}</span>}
