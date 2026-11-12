@@ -6,17 +6,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { DocumentItem } from '@/types/document';
 import AppHeader from '@/components/layout/AppHeader';
-import { 
-  Plus, 
-  FileText, 
-  Trash2, 
-  Search, 
-  ArrowRight, 
-  Loader2, 
-  LayoutGrid, 
-  List as ListIcon, 
-  Clock
-} from 'lucide-react';
 
 interface WorkspaceItem {
   id: number;
@@ -29,18 +18,38 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
-  const [activeTab] = useState<'all' | 'owned' | 'shared'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'owned' | 'shared' | 'favorites'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedWorkspace, setSelectedWorkspace] = useState<number | null>(null);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [newWsName, setNewWsName] = useState('');
   const [newWsDesc, setNewWsDesc] = useState('');
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string } | null>(null);
 
   useEffect(() => {
     setIsClient(true);
     const token = localStorage.getItem('syncspace_token');
     if (!token) {
       router.push('/login');
+      return;
+    }
+    const savedUser = localStorage.getItem('syncspace_user');
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch {
+        // ignore parse error
+      }
+    }
+    // Load local favorites
+    const savedFavs = localStorage.getItem('syncspace_favorites');
+    if (savedFavs) {
+      try {
+        setFavorites(JSON.parse(savedFavs));
+      } catch {
+        // ignore
+      }
     }
   }, [router]);
 
@@ -51,7 +60,7 @@ export default function DashboardPage() {
       const res = await api.get('/documents');
       return res.data;
     },
-    enabled: isClient && !!localStorage.getItem('syncspace_token'),
+    enabled: isClient && (typeof window !== 'undefined' ? !!localStorage.getItem('syncspace_token') : false),
   });
 
   // 2. Fetch Workspaces
@@ -61,7 +70,7 @@ export default function DashboardPage() {
       const res = await api.get('/workspaces');
       return res.data;
     },
-    enabled: isClient && !!localStorage.getItem('syncspace_token'),
+    enabled: isClient && (typeof window !== 'undefined' ? !!localStorage.getItem('syncspace_token') : false),
   });
 
   // 3. Create Document Mutation
@@ -108,289 +117,664 @@ export default function DashboardPage() {
     },
   });
 
+  // Toggle Favorite
+  const toggleFavorite = (e: React.MouseEvent, docId: number) => {
+    e.stopPropagation();
+    const updated = favorites.includes(docId)
+      ? favorites.filter((id) => id !== docId)
+      : [...favorites, docId];
+    setFavorites(updated);
+    localStorage.setItem('syncspace_favorites', JSON.stringify(updated));
+  };
+
+  // Filter documents
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (doc.content && doc.content.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesWorkspace = selectedWorkspace === null || doc.workspaceId === selectedWorkspace;
     if (!matchesSearch || !matchesWorkspace) return false;
 
     if (activeTab === 'owned') return doc.role === 'OWNER';
     if (activeTab === 'shared') return doc.role === 'EDITOR' || doc.role === 'VIEWER';
+    if (activeTab === 'favorites') return favorites.includes(doc.id);
     return true;
   });
 
+  // Pinned documents (up to 3)
+  const pinnedDocs = documents.slice(0, 3);
+
+  const activeWorkspaceName = selectedWorkspace
+    ? workspaces.find((w) => w.id === selectedWorkspace)?.name || 'Custom Workspace'
+    : 'SyncSpace Knowledge Hub';
+
   return (
-    <div className="min-h-screen bg-surface text-on-surface flex flex-col">
+    <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body-md selection:bg-primary-container selection:text-on-primary-container">
+      {/* Top Application Header */}
       <AppHeader
         breadcrumbs={[
           { label: 'SyncSpace', href: '/dashboard' },
-          { label: selectedWorkspace ? workspaces.find(w => w.id === selectedWorkspace)?.name || 'Workspace' : 'Engineering' },
-          { label: 'Knowledge Hub' }
+          { label: activeWorkspaceName },
+          { label: activeTab === 'all' ? 'All Artifacts' : activeTab.toUpperCase() }
         ]}
         showShareButton={false}
       />
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 p-4 sm:p-8 pt-16 sm:pt-20 overflow-y-auto">
-        <div className="max-w-6xl mx-auto space-y-6">
-          
-          {/* Top Bar: Title & Primary Actions */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
-                {selectedWorkspace ? workspaces.find(w => w.id === selectedWorkspace)?.name || 'Workspace' : 'Knowledge Hub'}
-              </h1>
-              <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5">
-                Manage, write, and collaborate on your Markdown documents.
-              </p>
-            </div>
+      {/* Main Viewport Content */}
+      <main className="w-full pt-14 bg-surface min-h-screen overflow-x-hidden">
+        <div className="flex flex-col w-full">
+          {/* Dynamic Atmosphere Underlay Glows */}
+          <div className="relative w-full overflow-hidden px-margin-tablet lg:px-margin-desktop py-space-lg">
+            <div className="absolute -top-24 -left-20 w-96 h-96 rounded-full bg-primary-container/5 blur-3xl pointer-events-none"></div>
+            <div className="absolute top-1/2 right-10 w-80 h-80 rounded-full bg-secondary-container/5 blur-3xl pointer-events-none"></div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-surface-container-low border border-surface-container-high p-1 rounded-lg">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-surface-container-high text-primary-container' : 'text-on-surface-variant hover:text-on-surface'}`}
-                  title="Grid View"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-surface-container-high text-primary-container' : 'text-on-surface-variant hover:text-on-surface'}`}
-                  title="List View"
-                >
-                  <ListIcon className="w-4 h-4" />
-                </button>
+            {/* Header & Welcome Banner Matrix */}
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-space-lg mb-space-xl relative z-10">
+              <div className="flex flex-col gap-space-xs max-w-2xl">
+                <div className="flex items-center gap-space-sm mb-1">
+                  <span className="inline-flex items-center gap-1.5 font-label-mono-sm text-label-mono-sm text-primary font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+                    Spring Boot 3 Engine Active
+                  </span>
+                  <span className="text-outline-variant font-label-mono-sm text-label-mono-sm">·</span>
+                  <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">WebSocket STOMP</span>
+                  <span className="text-outline-variant font-label-mono-sm text-label-mono-sm">·</span>
+                  <span className="font-label-mono-sm text-label-mono-sm text-primary-container font-semibold">
+                    {documents.length} {documents.length === 1 ? 'Doc' : 'Docs'}
+                  </span>
+                </div>
+                <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight font-semibold">
+                  Welcome back, {currentUser?.fullName?.split(' ')[0] || 'Engineer'}
+                </h1>
+                <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">
+                  Real-time knowledge hub and collaborative Markdown editor workspace.
+                </p>
               </div>
 
-              {/* Create New Document Button */}
-              <button
-                onClick={() => createMutation.mutate()}
-                disabled={createMutation.isPending}
-                className="w-full sm:w-auto px-4 py-2 bg-primary-container hover:bg-secondary-container text-on-primary-container font-mono text-xs sm:text-sm font-semibold rounded-lg shadow-emerald-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 cursor-pointer"
-              >
-                {createMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Plus className="w-4 h-4" />
+              {/* System Metric Badges */}
+              <div className="flex items-center gap-space-lg px-space-md py-space-sm rounded-xl bg-surface-container-low border border-surface-container-high/60 shadow-sm">
+                <div className="flex flex-col">
+                  <span className="font-label-mono-sm text-[10px] text-on-surface-variant uppercase tracking-wider">Latency</span>
+                  <span className="font-label-mono-sm text-headline-sm text-primary font-semibold">
+                    12.4<span className="text-body-sm font-normal text-on-surface-variant ml-0.5">ms</span>
+                  </span>
+                </div>
+                <div className="w-px h-6 bg-surface-container-highest"></div>
+                <div className="flex flex-col">
+                  <span className="font-label-mono-sm text-[10px] text-on-surface-variant uppercase tracking-wider">Sync State</span>
+                  <span className="font-label-mono-sm text-headline-sm text-primary-container font-semibold">
+                    CRDT<span className="text-body-sm font-normal text-on-surface-variant ml-0.5">/v2</span>
+                  </span>
+                </div>
+                <div className="w-px h-6 bg-surface-container-highest"></div>
+                <div className="flex flex-col">
+                  <span className="font-label-mono-sm text-[10px] text-on-surface-variant uppercase tracking-wider">Backend</span>
+                  <span className="font-label-mono-sm text-body-md text-secondary font-medium mt-0.5">Java 21</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Action & Interactive Filter Toolbar */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-space-md p-space-sm rounded-xl bg-surface-container-low mb-space-xl shadow-md border border-surface-container-high/60">
+              <div className="flex items-center gap-space-sm w-full md:w-auto">
+                <button
+                  onClick={() => createMutation.mutate()}
+                  disabled={createMutation.isPending}
+                  className="flex items-center gap-space-xs px-space-md py-2 rounded bg-primary-container text-on-primary-container font-label-ui text-label-ui font-semibold shadow-[0_0_16px_rgba(0,245,160,0.25)] hover:bg-secondary-container transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {createMutation.isPending ? 'sync' : 'add'}
+                  </span>
+                  <span>{createMutation.isPending ? 'Creating...' : 'New Document'}</span>
+                </button>
+
+                <button
+                  onClick={() => setShowWorkspaceModal(true)}
+                  className="flex items-center gap-space-xs px-space-md py-2 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-ui text-label-ui transition-colors cursor-pointer border border-surface-container-highest/60"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-secondary">create_new_folder</span>
+                  <span>New Workspace</span>
+                </button>
+
+                {/* Workspace Quick Filter Dropdown */}
+                {workspaces.length > 0 && (
+                  <select
+                    value={selectedWorkspace ?? ''}
+                    onChange={(e) => setSelectedWorkspace(e.target.value ? Number(e.target.value) : null)}
+                    className="bg-surface-container border border-surface-container-highest/60 rounded px-space-sm py-2 text-xs font-label-mono-sm text-on-surface focus:outline-none focus:border-primary-container cursor-pointer"
+                  >
+                    <option value="">All Workspaces</option>
+                    {workspaces.map((ws) => (
+                      <option key={ws.id} value={ws.id}>
+                        {ws.name}
+                      </option>
+                    ))}
+                  </select>
                 )}
-                <span>New Document</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-outline absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search documents by title... (⌘K)"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-surface-container-low border border-surface-container-high rounded-xl text-on-surface text-xs sm:text-sm focus:outline-none focus:border-primary-container transition-all placeholder:text-outline/60"
-            />
-          </div>
-
-          {/* Loading / Error States */}
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-20 text-on-surface-variant">
-              <Loader2 className="w-8 h-8 animate-spin text-primary-container mb-3" />
-              <span className="font-mono text-xs">Loading documents from Spring Boot API...</span>
-            </div>
-          )}
-
-          {isError && (
-            <div className="p-4 rounded-xl bg-error-container/20 border border-error/30 text-error text-xs sm:text-sm">
-              Failed to load documents from Spring Boot API. Make sure you are signed in.
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && !isError && filteredDocuments.length === 0 && (
-            <div className="border border-dashed border-surface-container-high rounded-xl p-12 text-center flex flex-col items-center justify-center bg-surface-container-lowest">
-              <div className="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-primary-container mb-3">
-                <FileText className="w-6 h-6" />
               </div>
-              <h3 className="font-semibold text-base text-on-surface">No documents found</h3>
-              <p className="text-xs text-on-surface-variant max-w-sm mt-1 mb-5">
-                {searchTerm ? 'No documents match your search criteria.' : 'Create your very first Markdown knowledge document to start collaborating.'}
-              </p>
-              <button
-                onClick={() => createMutation.mutate()}
-                className="px-4 py-2 bg-primary-container text-on-primary-container rounded-lg font-mono text-xs font-semibold shadow-emerald-sm hover:bg-secondary-container transition-all flex items-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create Document</span>
-              </button>
-            </div>
-          )}
 
-          {/* Document Display: GRID VIEW */}
-          {!isLoading && !isError && filteredDocuments.length > 0 && viewMode === 'grid' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredDocuments.map((doc) => (
-                <div
-                  key={doc.id}
-                  onClick={() => router.push(`/dashboard/document/${doc.id}`)}
-                  className="p-5 rounded-xl bg-surface-container-low border border-surface-container-high hover:border-primary-container/40 transition-all cursor-pointer group flex flex-col justify-between shadow-sm relative overflow-hidden"
+              {/* Search & View Mode Controls */}
+              <div className="flex items-center gap-space-sm w-full md:w-auto justify-end">
+                <div className="relative w-full md:w-80">
+                  <span className="material-symbols-outlined absolute left-space-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search docs, tags, syntax..."
+                    className="w-full bg-surface-container text-on-surface font-body-sm text-body-sm pl-9 pr-12 py-1.5 rounded focus:outline-none focus:bg-surface-container-high border border-surface-container-highest/40 placeholder:text-outline transition-colors"
+                  />
+                  <kbd className="absolute right-space-sm top-1/2 -translate-y-1/2 font-label-mono-sm text-label-mono-sm text-on-surface-variant border border-surface-container-highest px-1.5 py-0.5 rounded">
+                    ⌘K
+                  </kbd>
+                </div>
+
+                {/* Grid vs List Toggle */}
+                <div className="flex items-center p-0.5 rounded bg-surface-container border border-surface-container-highest/60">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`flex items-center justify-center w-7 h-7 rounded transition-all cursor-pointer ${
+                      viewMode === 'grid'
+                        ? 'bg-surface-container-high text-primary-container shadow-sm'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                    title="Grid View"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">grid_view</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`flex items-center justify-center w-7 h-7 rounded transition-all cursor-pointer ${
+                      viewMode === 'list'
+                        ? 'bg-surface-container-high text-primary-container shadow-sm'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                    title="List View"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">view_agenda</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Tabs Row */}
+            <div className="flex items-center gap-space-sm mb-space-lg overflow-x-auto pb-1">
+              {[
+                { id: 'all', label: 'All Documents', icon: 'article', count: documents.length },
+                { id: 'owned', label: 'My Documents', icon: 'person', count: documents.filter(d => d.role === 'OWNER').length },
+                { id: 'shared', label: 'Shared with Me', icon: 'group', count: documents.filter(d => d.role !== 'OWNER').length },
+                { id: 'favorites', label: 'Favorites', icon: 'star', count: favorites.length },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  className={`flex items-center gap-space-xs px-space-md py-1.5 rounded-full font-label-ui text-label-ui transition-all cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-primary-container/15 text-primary-container border border-primary-container/40 font-semibold'
+                      : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container border border-transparent'
+                  }`}
+                  type="button"
                 >
-                  <div>
-                    {/* Header: Title + Role Badge */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold text-sm sm:text-base text-on-surface group-hover:text-primary-container transition-colors truncate">
-                        {doc.title || 'Untitled Document'}
-                      </h3>
-                      <span className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded uppercase flex-shrink-0 ${
-                        doc.role === 'OWNER' 
-                          ? 'bg-primary-container/20 text-primary-container border border-primary-container/30'
-                          : doc.role === 'EDITOR'
-                          ? 'bg-secondary-container/20 text-secondary border border-secondary/30'
-                          : 'bg-surface-container-highest text-on-surface-variant'
-                      }`}>
-                        {doc.role || 'OWNER'}
-                      </span>
+                  <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span className="ml-1 text-[11px] font-label-mono-sm opacity-70">({tab.count})</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Main Workspace Split: Document Center (Bento + Feed) */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter-desktop">
+              {/* Primary Core: Pinned Cards + Data Stream Table (8 Cols) */}
+              <div className="xl:col-span-8 flex flex-col gap-space-xl">
+                
+                {/* Pinned Section (Top 3 Bento Cards) */}
+                {pinnedDocs.length > 0 && activeTab === 'all' && !searchTerm && (
+                  <div className="flex flex-col gap-space-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-space-sm">
+                        <span className="material-symbols-outlined text-primary-container text-[20px]">
+                          push_pin
+                        </span>
+                        <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
+                          Pinned Artifacts
+                        </h2>
+                        <span className="font-label-mono-sm text-label-mono-sm px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">
+                          Active Workspace Locks
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Markdown snippet */}
-                    <p className="text-xs text-on-surface-variant line-clamp-3 leading-relaxed font-mono">
-                      {doc.content ? doc.content.replace(/[#*`_]/g, '').slice(0, 150) : 'No content yet...'}
-                    </p>
+                    {/* 3 High Precision Pinned Bento Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+                      {pinnedDocs.map((doc, idx) => (
+                        <div
+                          key={doc.id}
+                          onClick={() => router.push(`/dashboard/document/${doc.id}`)}
+                          className="group relative flex flex-col justify-between p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container border border-surface-container-high/70 hover:border-primary-container/40 transition-all duration-200 cursor-pointer shadow-sm"
+                        >
+                          <div className="flex flex-col">
+                            <div className="flex items-center justify-between text-on-surface-variant mb-space-sm">
+                              <span className="font-label-mono-sm text-[11px] text-secondary">
+                                {idx === 0 ? 'ARCHITECTURE' : idx === 1 ? 'SPEC · V2' : 'CRDT · SYNC'}
+                              </span>
+                              <button
+                                onClick={(e) => toggleFavorite(e, doc.id)}
+                                className={`transition-colors cursor-pointer ${
+                                  favorites.includes(doc.id)
+                                    ? 'text-tertiary-fixed-dim'
+                                    : 'text-outline hover:text-tertiary'
+                                }`}
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">
+                                  {favorites.includes(doc.id) ? 'star' : 'star_border'}
+                                </span>
+                              </button>
+                            </div>
+                            <h3 className="font-body-md text-body-md text-on-surface font-semibold tracking-tight group-hover:text-primary transition-colors truncate">
+                              {doc.title || 'Untitled Document'}
+                            </h3>
+                            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2 leading-relaxed">
+                              {doc.content
+                                ? doc.content.replace(/[#*`_]/g, '').slice(0, 110)
+                                : 'Empty Markdown document ready for writing...'}
+                            </p>
+                          </div>
+                          <div className="mt-space-md pt-space-xs border-t border-surface-container-high flex items-center justify-between font-label-mono-sm text-label-mono-sm text-on-surface-variant">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-5 h-5 rounded-full bg-primary-container/20 text-primary-container flex items-center justify-center text-[10px] font-bold">
+                                {doc.role === 'OWNER' ? 'OW' : 'ED'}
+                              </div>
+                              <span className="truncate max-w-[90px]">{doc.role || 'OWNER'}</span>
+                            </div>
+                            <span>{doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : 'Active'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Documents Data Section */}
+                <div className="flex flex-col gap-space-md">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-space-sm">
+                      <span className="material-symbols-outlined text-secondary text-[20px]">
+                        dataset
+                      </span>
+                      <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
+                        Active Repositories &amp; Documents
+                      </h2>
+                    </div>
+                    <span className="font-label-mono-sm text-label-mono-sm text-on-surface-variant">
+                      Showing {filteredDocuments.length} of {documents.length}
+                    </span>
                   </div>
 
-                  {/* Footer Meta + Actions */}
-                  <div className="mt-5 pt-3 border-t border-surface-container-high flex items-center justify-between text-[11px] text-on-surface-variant font-mono">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : 'Just now'}</span>
+                  {/* Loading State */}
+                  {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-20 text-on-surface-variant bg-surface-container-low rounded-xl border border-surface-container-high">
+                      <span className="w-6 h-6 border-2 border-primary-container border-t-transparent rounded-full animate-spin mb-3"></span>
+                      <span className="font-label-mono-sm text-label-mono-sm">
+                        Loading documents from Spring Boot API...
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Error State */}
+                  {isError && (
+                    <div className="p-space-md rounded-xl bg-error-container/20 border border-error/30 text-error flex items-center gap-space-sm text-body-sm font-body-sm">
+                      <span className="material-symbols-outlined text-[20px]">error</span>
+                      <span>Failed to retrieve documents from Spring Boot. Please ensure you are logged in.</span>
+                    </div>
+                  )}
+
+                  {/* Empty State */}
+                  {!isLoading && !isError && filteredDocuments.length === 0 && (
+                    <div className="border border-dashed border-surface-container-high rounded-xl p-12 text-center flex flex-col items-center justify-center bg-surface-container-lowest">
+                      <div className="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-primary-container mb-3 shadow-[0_0_16px_rgba(0,245,160,0.15)]">
+                        <span className="material-symbols-outlined text-[26px]">description</span>
+                      </div>
+                      <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                        No documents found
+                      </h3>
+                      <p className="font-body-sm text-body-sm text-on-surface-variant max-w-sm mt-1 mb-5">
+                        {searchTerm
+                          ? `No markdown documents match "${searchTerm}".`
+                          : 'Create your very first Markdown knowledge document to start collaborative editing.'}
+                      </p>
+                      <button
+                        onClick={() => createMutation.mutate()}
+                        className="px-space-md py-2 bg-primary-container text-on-primary-container rounded font-label-ui text-label-ui font-semibold shadow-[0_0_16px_rgba(0,245,160,0.25)] hover:bg-secondary-container transition-all flex items-center gap-1.5 cursor-pointer"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">add</span>
+                        <span>Create Document</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* GRID VIEW */}
+                  {!isLoading && !isError && filteredDocuments.length > 0 && viewMode === 'grid' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+                      {filteredDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          onClick={() => router.push(`/dashboard/document/${doc.id}`)}
+                          className="p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container border border-surface-container-high hover:border-primary-container/40 transition-all cursor-pointer group flex flex-col justify-between shadow-sm relative overflow-hidden"
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface group-hover:text-primary-container transition-colors truncate">
+                                {doc.title || 'Untitled Document'}
+                              </h3>
+                              <span className={`text-[10px] font-label-mono-sm font-semibold px-2 py-0.5 rounded uppercase shrink-0 ${
+                                doc.role === 'OWNER'
+                                  ? 'bg-primary-container/20 text-primary-container border border-primary-container/30'
+                                  : doc.role === 'EDITOR'
+                                  ? 'bg-secondary-container/20 text-secondary border border-secondary/30'
+                                  : 'bg-surface-container-highest text-on-surface-variant'
+                              }`}>
+                                {doc.role || 'OWNER'}
+                              </span>
+                            </div>
+
+                            <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 leading-relaxed">
+                              {doc.content
+                                ? doc.content.replace(/[#*`_]/g, '').slice(0, 130)
+                                : 'Empty document...'}
+                            </p>
+                          </div>
+
+                          <div className="mt-space-md pt-space-xs border-t border-surface-container-high flex items-center justify-between text-label-mono-sm font-label-mono-sm text-on-surface-variant">
+                            <div className="flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px]">schedule</span>
+                              <span>{doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : 'Just now'}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => toggleFavorite(e, doc.id)}
+                                className={`transition-colors cursor-pointer ${
+                                  favorites.includes(doc.id) ? 'text-tertiary-fixed-dim' : 'text-outline hover:text-on-surface'
+                                }`}
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">
+                                  {favorites.includes(doc.id) ? 'star' : 'star_border'}
+                                </span>
+                              </button>
+
+                              {doc.role === 'OWNER' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Delete this document?')) deleteMutation.mutate(doc.id);
+                                  }}
+                                  className="text-on-surface-variant hover:text-error transition-colors p-1"
+                                  title="Delete Document"
+                                  type="button"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                              )}
+                              <span className="material-symbols-outlined text-[16px] text-primary-container group-hover:translate-x-0.5 transition-transform">
+                                arrow_forward
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* LIST VIEW (Stitch Obsidian Table) */}
+                  {!isLoading && !isError && filteredDocuments.length > 0 && viewMode === 'list' && (
+                    <div className="w-full overflow-x-auto rounded-xl bg-surface-container-low border border-surface-container-high shadow-md">
+                      <table className="w-full border-collapse text-left font-label-ui text-label-ui">
+                        <thead>
+                          <tr className="border-b border-surface-container-high text-on-surface-variant font-label-mono-sm text-[11px] uppercase tracking-wider">
+                            <th className="py-space-sm px-space-md">Document Name</th>
+                            <th className="py-space-sm px-space-md hidden sm:table-cell">Role / Tag</th>
+                            <th className="py-space-sm px-space-md hidden md:table-cell">Last Modified</th>
+                            <th className="py-space-sm px-space-md text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-surface-container-high/60">
+                          {filteredDocuments.map((doc) => (
+                            <tr
+                              key={doc.id}
+                              onClick={() => router.push(`/dashboard/document/${doc.id}`)}
+                              className="hover:bg-surface-container transition-colors cursor-pointer group"
+                            >
+                              <td className="py-space-md px-space-md">
+                                <div className="flex items-center gap-space-sm">
+                                  <span className="material-symbols-outlined text-primary-container text-[18px]">
+                                    article
+                                  </span>
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="font-medium text-on-surface group-hover:text-primary-container transition-colors truncate">
+                                      {doc.title || 'Untitled Document'}
+                                    </span>
+                                    <span className="font-label-mono-sm text-[11px] text-on-surface-variant truncate max-w-xs">
+                                      {doc.content ? doc.content.slice(0, 60) : 'No content'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-space-md px-space-md hidden sm:table-cell">
+                                <span className={`text-[10px] font-label-mono-sm font-semibold px-2 py-0.5 rounded uppercase ${
+                                  doc.role === 'OWNER'
+                                    ? 'bg-primary-container/20 text-primary-container border border-primary-container/30'
+                                    : 'bg-secondary-container/20 text-secondary border border-secondary/30'
+                                }`}>
+                                  {doc.role || 'OWNER'}
+                                </span>
+                              </td>
+                              <td className="py-space-md px-space-md font-label-mono-sm text-label-mono-sm text-on-surface-variant hidden md:table-cell">
+                                {doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : 'Just now'}
+                              </td>
+                              <td className="py-space-md px-space-md text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={(e) => toggleFavorite(e, doc.id)}
+                                    className={`p-1.5 transition-colors cursor-pointer ${
+                                      favorites.includes(doc.id) ? 'text-tertiary-fixed-dim' : 'text-outline hover:text-on-surface'
+                                    }`}
+                                    type="button"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">
+                                      {favorites.includes(doc.id) ? 'star' : 'star_border'}
+                                    </span>
+                                  </button>
+                                  {doc.role === 'OWNER' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm('Delete this document?')) deleteMutation.mutate(doc.id);
+                                      }}
+                                      className="p-1.5 text-on-surface-variant hover:text-error transition-colors"
+                                      title="Delete"
+                                      type="button"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                                    </button>
+                                  )}
+                                  <span className="material-symbols-outlined text-[16px] text-primary-container group-hover:translate-x-0.5 transition-transform">
+                                    arrow_forward
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Rail: Workspace Activity Pulse & Real-Time Node Health (4 Cols) */}
+              <div className="xl:col-span-4 flex flex-col gap-space-lg">
+                {/* Cluster Activity Feed */}
+                <div className="flex flex-col p-space-md rounded-xl bg-surface-container-low border border-surface-container-high shadow-md">
+                  <div className="flex items-center justify-between pb-space-sm mb-space-sm border-b border-surface-container-high/60">
+                    <h3 className="font-body-md text-body-md text-on-surface font-semibold tracking-tight">
+                      Cluster Activity
+                    </h3>
+                    <span className="font-label-mono-sm text-[11px] text-primary flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+                      Live
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-space-md mt-space-xs">
+                    <div className="flex items-start gap-space-sm">
+                      <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px] text-primary-container font-bold font-label-mono-sm">
+                        SC
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <p className="font-body-sm text-body-sm text-on-surface leading-snug">
+                          <span className="font-medium text-primary">Sarah Connor</span> committed changes to{' '}
+                          <span className="text-on-surface font-medium">Multiplayer WebSocket Protocol</span>
+                        </p>
+                        <span className="font-label-mono-sm text-[11px] text-on-surface-variant mt-0.5">
+                          Just now · +142 -18
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      {doc.role === 'OWNER' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Are you sure you want to delete this document?')) {
-                              deleteMutation.mutate(doc.id);
-                            }
-                          }}
-                          className="p-1 text-on-surface-variant hover:text-error hover:bg-surface-container rounded transition-colors"
-                          title="Delete Document"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <div className="p-1 text-primary-container group-hover:translate-x-0.5 transition-transform">
-                        <ArrowRight className="w-3.5 h-3.5" />
+                    <div className="flex items-start gap-space-sm">
+                      <div className="w-6 h-6 rounded-full bg-secondary-container/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px] text-secondary font-bold font-label-mono-sm">
+                        ER
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <p className="font-body-sm text-body-sm text-on-surface leading-snug">
+                          <span className="font-medium text-on-surface">Elena Rostova</span> synchronized{' '}
+                          <span className="text-on-surface font-medium">API Specifications</span>
+                        </p>
+                        <span className="font-label-mono-sm text-[11px] text-on-surface-variant mt-0.5">
+                          28m ago · CRDT delta merge
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-space-sm">
+                      <div className="w-6 h-6 rounded-full bg-tertiary-container/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px] text-tertiary-fixed-dim font-bold font-label-mono-sm">
+                        DK
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <p className="font-body-sm text-body-sm text-on-surface leading-snug">
+                          <span className="font-medium text-on-surface">David Kim</span> flushed memory snapshot
+                        </p>
+                        <span className="font-label-mono-sm text-[11px] text-on-surface-variant mt-0.5">
+                          1h ago · PostgreSQL WAL
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {/* Document Display: LIST VIEW */}
-          {!isLoading && !isError && filteredDocuments.length > 0 && viewMode === 'list' && (
-            <div className="bg-surface-container-low border border-surface-container-high rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-surface-container-high/60 text-on-surface-variant uppercase text-[10px] tracking-wider border-b border-surface-container-high">
-                  <tr>
-                    <th className="py-3 px-4">Title</th>
-                    <th className="py-3 px-4 hidden sm:table-cell">Role</th>
-                    <th className="py-3 px-4 hidden md:table-cell">Last Updated</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-container-high">
-                  {filteredDocuments.map((doc) => (
-                    <tr
-                      key={doc.id}
-                      onClick={() => router.push(`/dashboard/document/${doc.id}`)}
-                      className="hover:bg-surface-container transition-colors cursor-pointer"
-                    >
-                      <td className="py-3.5 px-4 font-sans font-medium text-on-surface text-sm">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-primary-container flex-shrink-0" />
-                          <span className="truncate">{doc.title}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 hidden sm:table-cell">
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-mono uppercase ${
-                          doc.role === 'OWNER' ? 'text-primary-container bg-primary-container/10' : 'text-secondary bg-secondary/10'
-                        }`}>
-                          {doc.role || 'OWNER'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-on-surface-variant hidden md:table-cell">
-                        {doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : 'Just now'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        {doc.role === 'OWNER' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm('Delete document?')) deleteMutation.mutate(doc.id);
-                            }}
-                            className="p-1 text-on-surface-variant hover:text-error transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                {/* Node Health & Consensus Monitor */}
+                <div className="flex flex-col p-space-md rounded-xl bg-surface-container-low border border-surface-container-high shadow-md">
+                  <div className="flex items-center justify-between mb-space-sm">
+                    <span className="font-label-mono-sm text-[11px] text-on-surface-variant uppercase tracking-wider">
+                      Node Health &amp; STOMP Socket
+                    </span>
+                    <span className="font-label-mono-sm text-label-mono-sm text-primary font-medium">
+                      100% OK
+                    </span>
+                  </div>
 
+                  <div className="w-full h-14 py-1">
+                    <svg className="w-full h-full text-primary-container overflow-visible" fill="none" viewBox="0 0 260 50">
+                      <path
+                        d="M0,35 Q30,12 60,28 T120,22 T180,38 T240,18 L260,25"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-space-sm pt-space-xs border-t border-surface-container-high/60">
+                    <div className="flex flex-col">
+                      <span className="font-label-mono-sm text-[10px] text-on-surface-variant">CONSENSUS</span>
+                      <span className="font-label-mono-sm text-body-sm text-on-surface font-medium">Synced</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-label-mono-sm text-[10px] text-on-surface-variant">DRIFT</span>
+                      <span className="font-label-mono-sm text-body-sm text-primary font-medium">0.00 ms</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
       {/* CREATE WORKSPACE MODAL */}
       {showWorkspaceModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-surface-container-low border border-surface-container-high rounded-xl p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-on-surface mb-1">Create New Workspace</h3>
-            <p className="text-xs text-on-surface-variant mb-4">
-              Group related documents and architectural specifications into a dedicated workspace.
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-space-md">
+          <div className="w-full max-w-md bg-surface-container-low border border-surface-container-high rounded-xl p-space-lg shadow-2xl relative">
+            <div className="flex items-center gap-space-sm mb-space-sm">
+              <span className="material-symbols-outlined text-secondary text-[22px]">create_new_folder</span>
+              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+                Create New Workspace
+              </h3>
+            </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+              Group related documents and architectural specifications into an isolated workspace.
             </p>
 
-            <div className="space-y-3 font-mono text-xs">
+            <div className="space-y-space-md">
               <div>
-                <label className="block text-on-surface-variant mb-1">Workspace Name</label>
+                <label className="block font-label-ui text-label-ui text-on-surface-variant mb-1">
+                  Workspace Name
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. Distributed Systems Lab"
                   value={newWsName}
                   onChange={(e) => setNewWsName(e.target.value)}
-                  className="w-full bg-surface-container-lowest border border-surface-container-high px-3 py-2 rounded-lg text-on-surface focus:outline-none focus:border-primary-container"
+                  className="w-full bg-surface-container-lowest border border-surface-container-high px-3 py-2 rounded-lg text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary-container"
                 />
               </div>
 
               <div>
-                <label className="block text-on-surface-variant mb-1">Description (Optional)</label>
+                <label className="block font-label-ui text-label-ui text-on-surface-variant mb-1">
+                  Description (Optional)
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g. Coursework notes & architecture blueprints"
+                  placeholder="e.g. Real-time CRDT coursework specs"
                   value={newWsDesc}
                   onChange={(e) => setNewWsDesc(e.target.value)}
-                  className="w-full bg-surface-container-lowest border border-surface-container-high px-3 py-2 rounded-lg text-on-surface focus:outline-none focus:border-primary-container"
+                  className="w-full bg-surface-container-lowest border border-surface-container-high px-3 py-2 rounded-lg text-on-surface font-body-sm text-body-sm focus:outline-none focus:border-primary-container"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-6">
+            <div className="flex items-center justify-end gap-space-sm mt-space-lg">
               <button
                 onClick={() => setShowWorkspaceModal(false)}
-                className="px-3 py-1.5 text-xs text-on-surface-variant hover:text-on-surface font-mono"
+                className="px-space-md py-1.5 font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface cursor-pointer"
+                type="button"
               >
                 Cancel
               </button>
               <button
                 onClick={() => createWsMutation.mutate()}
                 disabled={!newWsName.trim() || createWsMutation.isPending}
-                className="px-4 py-1.5 bg-primary-container hover:bg-secondary-container text-on-primary-container font-mono text-xs font-semibold rounded-lg shadow-emerald-sm disabled:opacity-50"
+                className="px-space-md py-2 bg-primary-container hover:bg-secondary-container text-on-primary-container font-label-ui text-label-ui font-semibold rounded shadow-sm disabled:opacity-50 cursor-pointer"
+                type="button"
               >
                 {createWsMutation.isPending ? 'Creating...' : 'Create Workspace'}
               </button>
@@ -398,7 +782,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
