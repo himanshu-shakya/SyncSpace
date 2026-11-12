@@ -2,12 +2,12 @@
 FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml first to leverage Docker cache for dependencies
+# Copy Maven wrapper and project configuration
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+RUN chmod +x mvnw
 
-# Copy application source code and compile
+# Copy application source code and compile jar
 COPY src src
 RUN ./mvnw clean package -DskipTests
 
@@ -15,7 +15,7 @@ RUN ./mvnw clean package -DskipTests
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# Expose Spring Boot default port
+# Expose port
 EXPOSE 8080
 
 # Copy executable jar from build stage
@@ -23,4 +23,3 @@ COPY --from=build /app/target/*.jar app.jar
 
 # Run Spring Boot app
 ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
-

@@ -1,0 +1,12 @@
+services:
+  # SyncSpace Spring Boot 3 + STOMP WebSockets Backend
+  - type: web
+    name: syncspace-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
