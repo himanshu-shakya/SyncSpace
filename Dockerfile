@@ -24,3 +24,4 @@ COPY --from=build /app/backend/target/*.jar app.jar
 
 # Run Spring Boot application
 ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+

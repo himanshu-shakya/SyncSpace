@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { Client } from '@stomp/stompjs';
 import { DocumentItem } from '@/types/document';
 import AppHeader from '@/components/layout/AppHeader';
 import ShareModal from '@/components/ShareModal';
@@ -70,7 +71,7 @@ function DashboardContent() {
     }
   }, [router]);
 
-  // 1. Fetch Documents
+  // 1. Fetch Documents with real-time sync
   const { data: documents = [], isLoading, isError } = useQuery<DocumentItem[]>({
     queryKey: ['documents'],
     queryFn: async () => {
@@ -78,9 +79,11 @@ function DashboardContent() {
       return res.data;
     },
     enabled: isClient && (typeof window !== 'undefined' ? !!localStorage.getItem('syncspace_token') : false),
+    refetchInterval: 2500,
+    refetchIntervalInBackground: true,
   });
 
-  // 2. Fetch Workspaces
+  // 2. Fetch Workspaces with real-time sync
   const { data: workspaces = [] } = useQuery<WorkspaceItem[]>({
     queryKey: ['workspaces'],
     queryFn: async () => {
@@ -88,7 +91,32 @@ function DashboardContent() {
       return res.data;
     },
     enabled: isClient && (typeof window !== 'undefined' ? !!localStorage.getItem('syncspace_token') : false),
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   });
+
+  // 3. Real-Time WebSocket listener for invitations & shares
+  useEffect(() => {
+    if (!isClient) return;
+    const token = localStorage.getItem('syncspace_token');
+    if (!token) return;
+
+    const brokerEndpoint = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws';
+    const client = new Client({
+      brokerURL: brokerEndpoint,
+      reconnectDelay: 3000,
+      onConnect: () => {
+        client.subscribe('/topic/shares', () => {
+          queryClient.invalidateQueries({ queryKey: ['documents'] });
+        });
+      },
+    });
+
+    client.activate();
+    return () => {
+      client.deactivate();
+    };
+  }, [isClient, queryClient]);
 
   // 3. Create Document Mutation
   const createMutation = useMutation({

@@ -6,6 +6,7 @@ import com.syncspace.dto.ShareRequest;
 import com.syncspace.service.DocumentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,9 +21,11 @@ import java.util.Map;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public DocumentController(DocumentService documentService) {
+    public DocumentController(DocumentService documentService, SimpMessagingTemplate messagingTemplate) {
         this.documentService = documentService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @GetMapping
@@ -88,6 +91,17 @@ public class DocumentController {
                                            Authentication authentication) {
         try {
             ShareDto share = documentService.shareDocument(id, request, authentication.getName());
+            
+            // Broadcast real-time share event to notify collaborators immediately without page refresh
+            try {
+                messagingTemplate.convertAndSend("/topic/shares", Map.of(
+                        "type", "DOCUMENT_SHARED",
+                        "documentId", id,
+                        "targetEmail", request.getEmail() != null ? request.getEmail().toLowerCase() : ""
+                ));
+            } catch (Exception ignored) {
+            }
+
             return ResponseEntity.status(HttpStatus.CREATED).body(share);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -110,6 +124,15 @@ public class DocumentController {
                                          Authentication authentication) {
         try {
             documentService.removeShare(id, shareId, authentication.getName());
+            
+            try {
+                messagingTemplate.convertAndSend("/topic/shares", Map.of(
+                        "type", "DOCUMENT_SHARE_REMOVED",
+                        "documentId", id
+                ));
+            } catch (Exception ignored) {
+            }
+
             return ResponseEntity.ok(Map.of("message", "Collaborator removed successfully"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

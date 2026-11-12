@@ -52,6 +52,8 @@ export default function ShareModal({
     },
     onSuccess: (newShare) => {
       queryClient.invalidateQueries({ queryKey: ['documentShares', documentId] });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['document', String(documentId)] });
       setEmail('');
       setError(null);
       setSuccess(`Access granted to ${newShare.userEmail} as ${newShare.role}`);
@@ -70,6 +72,8 @@ export default function ShareModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documentShares', documentId] });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['document', String(documentId)] });
     },
   });
 

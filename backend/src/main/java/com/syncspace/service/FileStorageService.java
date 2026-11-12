@@ -5,6 +5,7 @@ import com.syncspace.entity.User;
 import com.syncspace.repository.AttachmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,8 +25,10 @@ public class FileStorageService {
     private final Path rootLocation = Paths.get("uploads").toAbsolutePath().normalize();
     private final AttachmentRepository attachmentRepository;
 
-    private static final List<String> ALLOWED_EXTENSIONS = Arrays.asList("image/jpeg", "image/png", "image/gif", "image/webp");
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+    private static final List<String> ALLOWED_EXTENSIONS = Arrays.asList(
+            "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml"
+    );
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
     public FileStorageService(AttachmentRepository attachmentRepository) {
         this.attachmentRepository = attachmentRepository;
@@ -42,12 +45,16 @@ public class FileStorageService {
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File size exceeds 5MB limit.");
+            throw new IllegalArgumentException("File size exceeds 10MB limit.");
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_EXTENSIONS.contains(contentType.toLowerCase())) {
-            throw new IllegalArgumentException("Only image files (JPEG, PNG, GIF, WebP) are supported.");
+        if (contentType != null && !ALLOWED_EXTENSIONS.contains(contentType.toLowerCase())) {
+            String filename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+            if (!filename.endsWith(".jpg") && !filename.endsWith(".jpeg") && !filename.endsWith(".png") &&
+                !filename.endsWith(".gif") && !filename.endsWith(".webp") && !filename.endsWith(".svg")) {
+                throw new IllegalArgumentException("Only image files (JPEG, PNG, GIF, WebP, SVG) are supported.");
+            }
         }
 
         String originalName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "image.png";
@@ -59,12 +66,20 @@ public class FileStorageService {
             Path destinationFile = this.rootLocation.resolve(uniqueFileName);
             Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
 
-            String fileUrl = "http://localhost:8080/uploads/" + uniqueFileName;
+            String fileUrl;
+            try {
+                fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                        .path("/uploads/")
+                        .path(uniqueFileName)
+                        .toUriString();
+            } catch (Exception e) {
+                fileUrl = "/uploads/" + uniqueFileName;
+            }
 
             Attachment attachment = new Attachment(
                     uniqueFileName,
                     originalName,
-                    contentType,
+                    contentType != null ? contentType : "image/png",
                     file.getSize(),
                     fileUrl,
                     user
@@ -76,4 +91,3 @@ public class FileStorageService {
         }
     }
 }
-

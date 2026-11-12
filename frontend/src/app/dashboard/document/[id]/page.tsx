@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { api } from '@/lib/api';
 import { DocumentItem } from '@/types/document';
 import ShareModal from '@/components/ShareModal';
@@ -68,6 +69,10 @@ export default function DocumentEditorPage() {
     onRemoteUpdate: (remoteTitle, remoteContent, senderName) => {
       setContent(remoteContent);
       if (remoteTitle) setTitle(remoteTitle);
+      queryClient.setQueryData(['document', docId], (old: unknown) => {
+        if (!old || typeof old !== 'object') return old;
+        return { ...(old as Record<string, unknown>), title: remoteTitle || (old as Record<string, unknown>).title, content: remoteContent };
+      });
       setRemoteEditNotice(`${senderName} is editing live...`);
 
       const timer = setTimeout(() => {
@@ -126,16 +131,14 @@ export default function DocumentEditorPage() {
     if (document?.role === 'VIEWER') return;
     setContent(newVal);
     setHasUnsavedChanges(true);
-
-    if (currentUser) {
-      sendEdit(title, newVal);
-    }
+    sendEdit(title, newVal);
   };
 
   const handleTitleChange = (newTitle: string) => {
     if (document?.role === 'VIEWER') return;
     setTitle(newTitle);
     setHasUnsavedChanges(true);
+    sendEdit(newTitle, content);
   };
 
   // Track cursor position in editor
@@ -151,27 +154,64 @@ export default function DocumentEditorPage() {
   };
 
   // Image upload handler
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadImageFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (PNG, JPEG, GIF, WebP, SVG).');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds 10MB limit.');
+      return;
+    }
 
     setIsUploadingImage(true);
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const res = await api.post('/uploads', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // NOTE: Never set Content-Type manually for FormData in Axios/fetch; let browser calculate boundary
+      const res = await api.post('/uploads', formData);
 
-      const imageUrl = res.data.url;
-      const markdownImage = `\n![${file.name}](${imageUrl})\n`;
+      let imageUrl: string = res.data.url;
+      if (imageUrl.startsWith('/')) {
+        const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, '') || 'https://syncspace-1-ntfh.onrender.com';
+        imageUrl = `${apiBase}${imageUrl}`;
+      } else if (imageUrl.includes('localhost:8080') && typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+        const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, '') || 'https://syncspace-1-ntfh.onrender.com';
+        imageUrl = imageUrl.replace('http://localhost:8080', apiBase);
+      }
+
+      const cleanName = file.name.replace(/[[\]]/g, '');
+      const markdownImage = `\n![${cleanName}](${imageUrl})\n`;
       insertFormatting(markdownImage, '', false);
-    } catch {
-      alert('Failed to upload image. Must be image file under 5MB.');
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { error?: string } } };
+      alert(errorObj.response?.data?.error || 'Failed to upload image. Must be image file under 10MB.');
     } finally {
       setIsUploadingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadImageFile(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          uploadImageFile(file);
+          return;
+        }
+      }
     }
   };
 
@@ -629,6 +669,7 @@ export default function DocumentEditorPage() {
                   value={content}
                   disabled={isReadOnly}
                   onChange={(e) => handleContentChange(e.target.value)}
+                  onPaste={handlePaste}
                   onSelect={handleTextareaSelect}
                   onKeyUp={handleTextareaSelect}
                   onClick={handleTextareaSelect}
@@ -685,6 +726,7 @@ export default function DocumentEditorPage() {
                 {/* ReactMarkdown Formatted Output */}
                 <div className="prose prose-invert max-w-none space-y-4 text-on-surface">
                   <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={{
                       h1: ({ ...props }) => (
                         <h1 className="font-headline-lg text-headline-lg font-bold text-on-surface mt-6 mb-3 border-b border-surface-container-highest pb-2" {...props} />
@@ -705,7 +747,7 @@ export default function DocumentEditorPage() {
                         <ol className="list-decimal list-inside space-y-1 text-on-surface-variant my-2" {...props} />
                       ),
                       li: ({ ...props }) => (
-                        <li className="font-body-sm text-body-sm" {...props} />
+                        <li className="font-body-sm text-body-sm my-0.5" {...props} />
                       ),
                       blockquote: ({ ...props }) => (
                         <blockquote className="my-3 p-space-md rounded bg-surface-container-low border-l-4 border-secondary-container text-on-surface font-body-sm" {...props} />
@@ -728,20 +770,58 @@ export default function DocumentEditorPage() {
                         );
                       },
                       table: ({ ...props }) => (
-                        <div className="overflow-x-auto my-4 rounded border border-surface-container-high">
+                        <div className="overflow-x-auto my-6 rounded-lg border border-surface-container-high bg-surface-container-lowest/60 shadow-lg">
                           <table className="w-full text-left text-xs font-label-ui border-collapse" {...props} />
                         </div>
                       ),
+                      thead: ({ ...props }) => (
+                        <thead className="bg-surface-container-high text-on-surface uppercase text-[11px] tracking-wider border-b border-surface-container-highest" {...props} />
+                      ),
+                      tbody: ({ ...props }) => (
+                        <tbody className="divide-y divide-surface-container-high/60 text-on-surface-variant font-body-sm" {...props} />
+                      ),
+                      tr: ({ ...props }) => (
+                        <tr className="hover:bg-surface-container/40 transition-colors" {...props} />
+                      ),
                       th: ({ ...props }) => (
-                        <th className="bg-surface-container-high p-2 font-semibold text-on-surface border-b border-surface-container-highest" {...props} />
+                        <th className="px-4 py-3 font-semibold text-primary-container" {...props} />
                       ),
                       td: ({ ...props }) => (
-                        <td className="p-2 border-b border-surface-container-high text-on-surface-variant" {...props} />
+                        <td className="px-4 py-3 text-on-surface-variant" {...props} />
                       ),
-                      img: ({ ...props }) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img className="max-w-full rounded-lg border border-surface-container-high my-3 shadow-md" alt="Uploaded Document Asset" {...props} />
-                      ),
+                      input: ({ type, checked, ...props }) => {
+                        if (type === 'checkbox') {
+                          return (
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              readOnly
+                              className="mr-2 rounded border-surface-container-high text-primary-container focus:ring-0 cursor-default"
+                              {...props}
+                            />
+                          );
+                        }
+                        return <input type={type} {...props} />;
+                      },
+                      img: ({ src, alt, ...props }) => {
+                        let resolvedSrc = src;
+                        if (resolvedSrc && resolvedSrc.startsWith('/uploads/')) {
+                          const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, '') || 'https://syncspace-1-ntfh.onrender.com';
+                          resolvedSrc = `${apiBase}${resolvedSrc}`;
+                        } else if (resolvedSrc && resolvedSrc.includes('localhost:8080') && typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+                          const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, '') || 'https://syncspace-1-ntfh.onrender.com';
+                          resolvedSrc = resolvedSrc.replace('http://localhost:8080', apiBase);
+                        }
+                        return (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={resolvedSrc}
+                            className="max-w-full rounded-lg border border-surface-container-high my-4 shadow-md object-contain max-h-[500px]"
+                            alt={alt || 'Uploaded Document Asset'}
+                            {...props}
+                          />
+                        );
+                      },
                     }}
                   >
                     {content || '*No content written yet. Click on the left editor to start typing.*'}
