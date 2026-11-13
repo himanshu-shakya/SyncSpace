@@ -3,6 +3,8 @@ package com.syncspace.controller;
 import com.syncspace.dto.DocumentDto;
 import com.syncspace.dto.ShareDto;
 import com.syncspace.dto.ShareRequest;
+import com.syncspace.entity.DocumentShare;
+import com.syncspace.repository.DocumentShareRepository;
 import com.syncspace.service.DocumentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +23,14 @@ import java.util.Map;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentShareRepository documentShareRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public DocumentController(DocumentService documentService, SimpMessagingTemplate messagingTemplate) {
+    public DocumentController(DocumentService documentService,
+                              DocumentShareRepository documentShareRepository,
+                              SimpMessagingTemplate messagingTemplate) {
         this.documentService = documentService;
+        this.documentShareRepository = documentShareRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -92,12 +98,21 @@ public class DocumentController {
         try {
             ShareDto share = documentService.shareDocument(id, request, authentication.getName());
             
-            // Broadcast real-time share event to notify collaborators immediately without page refresh
+            // Broadcast real-time share and role event to notify collaborators immediately
             try {
+                String targetEmail = request.getEmail() != null ? request.getEmail().toLowerCase() : "";
                 messagingTemplate.convertAndSend("/topic/shares", Map.of(
                         "type", "DOCUMENT_SHARED",
                         "documentId", id,
-                        "targetEmail", request.getEmail() != null ? request.getEmail().toLowerCase() : ""
+                        "targetEmail", targetEmail
+                ));
+
+                // Also notify active viewers on the document in case their role was changed (e.g. EDITOR -> VIEWER)
+                messagingTemplate.convertAndSend("/topic/document/" + id, Map.of(
+                        "type", "ROLE_UPDATED",
+                        "documentId", id,
+                        "targetEmail", targetEmail,
+                        "role", request.getRole()
                 ));
             } catch (Exception ignored) {
             }
@@ -123,13 +138,35 @@ public class DocumentController {
                                          @PathVariable Long shareId,
                                          Authentication authentication) {
         try {
+            // Find share target before deleting to broadcast access revocation
+            String targetEmail = null;
+            try {
+                DocumentShare share = documentShareRepository.findById(shareId).orElse(null);
+                if (share != null && share.getUser() != null) {
+                    targetEmail = share.getUser().getEmail().toLowerCase();
+                }
+            } catch (Exception ignored) {
+            }
+
             documentService.removeShare(id, shareId, authentication.getName());
             
             try {
+                // Broadcast share removal for dashboard lists
                 messagingTemplate.convertAndSend("/topic/shares", Map.of(
                         "type", "DOCUMENT_SHARE_REMOVED",
-                        "documentId", id
+                        "documentId", id,
+                        "targetEmail", targetEmail != null ? targetEmail : ""
                 ));
+
+                // Broadcast immediate access revocation to the live document channel
+                if (targetEmail != null) {
+                    messagingTemplate.convertAndSend("/topic/document/" + id, Map.of(
+                            "type", "ACCESS_REVOKED",
+                            "documentId", id,
+                            "targetEmail", targetEmail,
+                            "message", "Your access to this document has been removed by the owner."
+                    ));
+                }
             } catch (Exception ignored) {
             }
 

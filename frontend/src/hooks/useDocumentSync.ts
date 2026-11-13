@@ -5,6 +5,8 @@ export interface SyncMessage {
   documentId: number;
   senderEmail: string;
   senderName: string;
+  targetEmail?: string;
+  role?: string;
   title: string;
   content: string;
   type: string;
@@ -22,11 +24,17 @@ export function useDocumentSync({
   userEmail,
   userName,
   onRemoteUpdate,
+  onAccessRevoked,
+  onRoleUpdated,
+  onReadOnlyViolation,
 }: {
   documentId: string;
   userEmail?: string;
   userName?: string;
   onRemoteUpdate: (title: string, content: string, senderName: string) => void;
+  onAccessRevoked?: () => void;
+  onRoleUpdated?: (newRole: string) => void;
+  onReadOnlyViolation?: () => void;
 }) {
   const stompClientRef = useRef<Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -36,6 +44,15 @@ export function useDocumentSync({
   // Store mutable references to avoid re-triggering STOMP client recreation
   const onRemoteUpdateRef = useRef(onRemoteUpdate);
   onRemoteUpdateRef.current = onRemoteUpdate;
+
+  const onAccessRevokedRef = useRef(onAccessRevoked);
+  onAccessRevokedRef.current = onAccessRevoked;
+
+  const onRoleUpdatedRef = useRef(onRoleUpdated);
+  onRoleUpdatedRef.current = onRoleUpdated;
+
+  const onReadOnlyViolationRef = useRef(onReadOnlyViolation);
+  onReadOnlyViolationRef.current = onReadOnlyViolation;
 
   const userEmailRef = useRef(userEmail);
   userEmailRef.current = userEmail;
@@ -78,6 +95,36 @@ export function useDocumentSync({
             const data: SyncMessage = JSON.parse(message.body);
             const myEmail = userEmailRef.current?.trim().toLowerCase();
             const senderEmail = data.senderEmail?.trim().toLowerCase();
+            const targetEmail = data.targetEmail?.trim().toLowerCase();
+
+            // 1. Access Revocation Check
+            if (data.type === 'ACCESS_REVOKED') {
+              if (myEmail && (targetEmail === myEmail || senderEmail === myEmail)) {
+                if (onAccessRevokedRef.current) {
+                  onAccessRevokedRef.current();
+                }
+                return;
+              }
+            }
+
+            // 2. Role Updated in Real-Time (e.g., OWNER switches collaborator from EDITOR to VIEWER)
+            if (data.type === 'ROLE_UPDATED') {
+              if (myEmail && targetEmail === myEmail && data.role) {
+                if (onRoleUpdatedRef.current) {
+                  onRoleUpdatedRef.current(data.role);
+                }
+              }
+            }
+
+            // 3. Read-Only Violation Check
+            if (data.type === 'READ_ONLY_VIOLATION') {
+              if (myEmail && senderEmail === myEmail) {
+                if (onReadOnlyViolationRef.current) {
+                  onReadOnlyViolationRef.current();
+                }
+                return;
+              }
+            }
 
             // Track active peer if message is from another user
             if (senderEmail && (!myEmail || senderEmail !== myEmail)) {

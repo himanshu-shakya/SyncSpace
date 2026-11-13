@@ -31,12 +31,18 @@ function DashboardContent() {
   const [currentUser, setCurrentUser] = useState<{ fullName: string; email: string } | null>(null);
   const [shareDoc, setShareDoc] = useState<{ id: number; title: string } | null>(null);
 
-  // Synchronize activeTab and search query whenever URL query changes
+  // Synchronize activeTab, search query, and workspace filter whenever URL query changes
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     const queryParam = searchParams.get('q');
+    const wsParam = searchParams.get('workspace');
     if (queryParam !== null) {
       setSearchTerm(queryParam);
+    }
+    if (wsParam !== null) {
+      setSelectedWorkspace(wsParam ? Number(wsParam) : null);
+    } else {
+      setSelectedWorkspace(null);
     }
     if (tabParam && ['all', 'owned', 'shared', 'favorites', 'workspaces'].includes(tabParam)) {
       setActiveTab(tabParam as typeof activeTab);
@@ -286,7 +292,18 @@ function DashboardContent() {
                 {workspaces.length > 0 && (
                   <select
                     value={selectedWorkspace ?? ''}
-                    onChange={(e) => setSelectedWorkspace(e.target.value ? Number(e.target.value) : null)}
+                    onChange={(e) => {
+                      const wsId = e.target.value ? Number(e.target.value) : null;
+                      setSelectedWorkspace(wsId);
+                      const params = new URLSearchParams(searchParams ? searchParams.toString() : '');
+                      if (wsId !== null) {
+                        params.set('workspace', String(wsId));
+                      } else {
+                        params.delete('workspace');
+                      }
+                      const qs = params.toString();
+                      router.push(`/dashboard${qs ? `?${qs}` : ''}`);
+                    }}
                     className="bg-surface-container border border-surface-container-highest/60 rounded px-space-sm py-2 text-xs font-label-mono-sm text-on-surface focus:outline-none focus:border-primary-container cursor-pointer"
                   >
                     <option value="">All Workspaces</option>

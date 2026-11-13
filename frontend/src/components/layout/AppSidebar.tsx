@@ -104,9 +104,29 @@ export default function AppSidebar({
     router.push('/login');
   };
 
-  const activeWorkspaceName = selectedWorkspaceId
-    ? workspaces.find((w) => w.id === selectedWorkspaceId)?.name || 'Custom Workspace'
+  const workspaceParam = searchParams ? searchParams.get('workspace') : null;
+  const effectiveWsId = selectedWorkspaceId !== undefined && selectedWorkspaceId !== null
+    ? selectedWorkspaceId
+    : (workspaceParam ? Number(workspaceParam) : null);
+
+  const activeWorkspaceName = effectiveWsId
+    ? workspaces.find((w) => w.id === effectiveWsId)?.name || 'Custom Workspace'
     : 'SyncSpace Knowledge Hub';
+
+  const handleSelectWs = (wsId: number | null) => {
+    setIsWorkspaceDropdownOpen(false);
+    if (onSelectWorkspace) {
+      onSelectWorkspace(wsId);
+    }
+    const params = new URLSearchParams(searchParams ? searchParams.toString() : '');
+    if (wsId !== null) {
+      params.set('workspace', String(wsId));
+    } else {
+      params.delete('workspace');
+    }
+    const qs = params.toString();
+    router.push(`/dashboard${qs ? `?${qs}` : ''}`);
+  };
 
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', tab: null, icon: 'space_dashboard' },
@@ -182,12 +202,9 @@ export default function AppSidebar({
             {isWorkspaceDropdownOpen && (
               <div className="absolute top-full left-4 right-4 mt-1 bg-surface-container-high border border-surface-container-highest rounded-lg shadow-xl z-50 p-1 font-mono text-xs max-h-56 overflow-y-auto">
                 <button
-                  onClick={() => {
-                    if (onSelectWorkspace) onSelectWorkspace(null);
-                    setIsWorkspaceDropdownOpen(false);
-                  }}
+                  onClick={() => handleSelectWs(null)}
                   className={`w-full text-left px-2.5 py-1.5 rounded flex items-center justify-between transition-colors ${
-                    selectedWorkspaceId === null ? 'bg-primary-container/15 text-primary-container' : 'text-on-surface hover:bg-surface-container'
+                    effectiveWsId === null ? 'bg-primary-container/15 text-primary-container font-medium' : 'text-on-surface hover:bg-surface-container'
                   }`}
                 >
                   <span>All Documents</span>
@@ -195,12 +212,9 @@ export default function AppSidebar({
                 {workspaces.map((ws) => (
                   <button
                     key={ws.id}
-                    onClick={() => {
-                      if (onSelectWorkspace) onSelectWorkspace(ws.id);
-                      setIsWorkspaceDropdownOpen(false);
-                    }}
+                    onClick={() => handleSelectWs(ws.id)}
                     className={`w-full text-left px-2.5 py-1.5 rounded truncate flex items-center justify-between transition-colors ${
-                      selectedWorkspaceId === ws.id ? 'bg-primary-container/15 text-primary-container' : 'text-on-surface hover:bg-surface-container'
+                      effectiveWsId === ws.id ? 'bg-primary-container/15 text-primary-container font-medium' : 'text-on-surface hover:bg-surface-container'
                     }`}
                   >
                     <span className="truncate">{ws.name}</span>

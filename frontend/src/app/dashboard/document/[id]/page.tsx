@@ -19,6 +19,7 @@ export default function DocumentEditorPage() {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [effectiveRole, setEffectiveRole] = useState<'OWNER' | 'EDITOR' | 'VIEWER' | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'editor' | 'preview'>('split');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -58,8 +59,14 @@ export default function DocumentEditorPage() {
     if (document) {
       setTitle(document.title);
       setContent(document.content || '');
+      setEffectiveRole(document.role as 'OWNER' | 'EDITOR' | 'VIEWER');
+      if (document.role === 'VIEWER') {
+        setViewMode('preview');
+      }
     }
   }, [document]);
+
+  const isReadOnly = (effectiveRole ?? document?.role) === 'VIEWER';
 
   // 2. Real-Time WebSocket Collaboration hook
   const { sendEdit, activePeers } = useDocumentSync({
@@ -80,11 +87,28 @@ export default function DocumentEditorPage() {
       }, 4000);
       return () => clearTimeout(timer);
     },
+    onAccessRevoked: () => {
+      alert('Access Revoked: Your access to this document has been removed by the owner.');
+      router.push('/dashboard');
+    },
+    onRoleUpdated: (newRole: string) => {
+      setEffectiveRole(newRole as 'OWNER' | 'EDITOR' | 'VIEWER');
+      queryClient.invalidateQueries({ queryKey: ['document', docId] });
+      if (newRole === 'VIEWER') {
+        setViewMode('preview');
+      }
+    },
+    onReadOnlyViolation: () => {
+      setEffectiveRole('VIEWER');
+      setViewMode('preview');
+      alert('Read-Only Access: You have viewer permissions and cannot edit this document.');
+    },
   });
 
   // 3. Save Mutation
   const saveMutation = useMutation({
     mutationFn: async ({ newTitle, newContent }: { newTitle: string; newContent: string }) => {
+      if (isReadOnly) throw new Error('Document is read-only.');
       const res = await api.put(`/documents/${docId}`, {
         title: newTitle,
         content: newContent,
@@ -96,24 +120,31 @@ export default function DocumentEditorPage() {
       queryClient.setQueryData(['document', docId], updated);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
+    onError: (err: unknown) => {
+      const errorObj = err as { response?: { status?: number; data?: { error?: string } } };
+      if (errorObj.response?.status === 403) {
+        alert('Access Denied: You do not have permission to edit this document.');
+        router.push('/dashboard');
+      }
+    },
   });
 
   // Manual save trigger
   const handleManualSave = useCallback(() => {
-    if (document?.role === 'VIEWER') return;
+    if (isReadOnly) return;
     saveMutation.mutate({ newTitle: title, newContent: content });
-  }, [title, content, saveMutation, document]);
+  }, [title, content, saveMutation, isReadOnly]);
 
   // Debounced auto-save (2 seconds after typing stops)
   useEffect(() => {
-    if (!hasUnsavedChanges || document?.role === 'VIEWER') return;
+    if (!hasUnsavedChanges || isReadOnly) return;
 
     const timer = setTimeout(() => {
       saveMutation.mutate({ newTitle: title, newContent: content });
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [content, title, hasUnsavedChanges, saveMutation, document]);
+  }, [content, title, hasUnsavedChanges, saveMutation, isReadOnly]);
 
   // Keyboard shortcut Ctrl+S / Cmd+S
   useEffect(() => {
@@ -128,14 +159,14 @@ export default function DocumentEditorPage() {
   }, [handleManualSave]);
 
   const handleContentChange = (newVal: string) => {
-    if (document?.role === 'VIEWER') return;
+    if (isReadOnly) return;
     setContent(newVal);
     setHasUnsavedChanges(true);
     sendEdit(title, newVal);
   };
 
   const handleTitleChange = (newTitle: string) => {
-    if (document?.role === 'VIEWER') return;
+    if (isReadOnly) return;
     setTitle(newTitle);
     setHasUnsavedChanges(true);
     sendEdit(newTitle, content);
@@ -155,6 +186,7 @@ export default function DocumentEditorPage() {
 
   // Image upload handler
   const uploadImageFile = async (file: File) => {
+    if (isReadOnly) return;
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file (PNG, JPEG, GIF, WebP, SVG).');
       return;
@@ -217,7 +249,7 @@ export default function DocumentEditorPage() {
 
   // Insert markdown helper
   const insertFormatting = (prefix: string, suffix: string = '', wrap: boolean = true) => {
-    if (document?.role === 'VIEWER') return;
+    if (isReadOnly) return;
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -288,8 +320,6 @@ export default function DocumentEditorPage() {
     );
   }
 
-  const isReadOnly = document.role === 'VIEWER';
-
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body-md selection:bg-primary-container selection:text-on-primary-container">
       {/* Hidden File Input for Image Uploads */}
@@ -336,10 +366,13 @@ export default function DocumentEditorPage() {
                 <input
                   type="text"
                   value={title}
+                  readOnly={isReadOnly}
                   disabled={isReadOnly}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  placeholder="Document Title..."
-                  className="font-headline-md text-headline-md text-on-surface bg-transparent hover:bg-surface-container/60 focus:bg-surface-container px-space-xs py-0.5 rounded transition-colors focus:outline-none focus:text-primary min-w-[260px] md:min-w-[380px] font-semibold border-b border-transparent focus:border-primary-container truncate"
+                  placeholder={isReadOnly ? title : "Document Title..."}
+                  className={`font-headline-md text-headline-md text-on-surface bg-transparent px-space-xs py-0.5 rounded transition-colors focus:outline-none focus:text-primary min-w-[260px] md:min-w-[380px] font-semibold border-b border-transparent truncate ${
+                    isReadOnly ? 'cursor-default select-text' : 'hover:bg-surface-container/60 focus:bg-surface-container focus:border-primary-container'
+                  }`}
                 />
               </div>
 
@@ -628,11 +661,15 @@ export default function DocumentEditorPage() {
 
         {/* Read-Only Notice Bar */}
         {isReadOnly && (
-          <div className="w-full bg-surface-container-high/60 border-b border-surface-container-highest px-gutter-desktop py-2 flex items-center justify-between text-xs text-secondary font-label-mono-sm">
+          <div className="w-full bg-surface-container-high border-b border-surface-container-highest px-margin-tablet lg:px-gutter-desktop py-2.5 flex items-center justify-between text-xs text-on-surface font-label-mono-sm shadow-inner">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]">lock</span>
-              <span>Read-Only Mode: You have Viewer permissions for this document.</span>
+              <span className="material-symbols-outlined text-[18px] text-secondary">visibility</span>
+              <span className="font-semibold text-secondary">Read-Only Access:</span>
+              <span className="text-on-surface-variant">You have Viewer permissions for this document. You can read and view content, but editing and auto-save are disabled.</span>
             </div>
+            <span className="px-2 py-0.5 rounded bg-surface-container text-secondary text-[11px] font-semibold border border-surface-container-highest uppercase">
+              Viewer
+            </span>
           </div>
         )}
 
@@ -674,14 +711,17 @@ export default function DocumentEditorPage() {
                 <textarea
                   ref={textareaRef}
                   value={content}
+                  readOnly={isReadOnly}
                   disabled={isReadOnly}
                   onChange={(e) => handleContentChange(e.target.value)}
                   onPaste={handlePaste}
                   onSelect={handleTextareaSelect}
                   onKeyUp={handleTextareaSelect}
                   onClick={handleTextareaSelect}
-                  placeholder="# Write your Markdown knowledge document here..."
-                  className="flex-1 p-space-md font-code-block text-code-block bg-transparent text-on-surface focus:outline-none resize-none leading-relaxed placeholder:text-outline/40 overflow-y-auto selection:bg-primary-container selection:text-on-primary-container"
+                  placeholder={isReadOnly ? "This document is read-only." : "# Write your Markdown knowledge document here..."}
+                  className={`flex-1 p-space-md font-code-block text-code-block bg-transparent text-on-surface focus:outline-none resize-none leading-relaxed placeholder:text-outline/40 overflow-y-auto selection:bg-primary-container selection:text-on-primary-container ${
+                    isReadOnly ? 'cursor-default opacity-85 select-text' : ''
+                  }`}
                 />
               </div>
             </section>
